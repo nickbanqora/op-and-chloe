@@ -29,23 +29,36 @@ the only shared surface, and it only returns tokens.
 
 ## Quick start
 
-### 1. Create the secrets directory
+The setup wizard (`sudo ./setup.sh`, step 19) handles steps 1-2 automatically.
+You only need to do the provider-specific steps (creating apps, downloading keys) manually.
+
+### 1. Create the secrets directory and config (wizard step 19)
+
+The wizard creates `/etc/token-vending/`, seeds `config.yaml` from the example,
+and opens it in an editor. You can also do this manually:
 
 ```bash
 sudo mkdir -p /etc/token-vending
 sudo chmod 700 /etc/token-vending
-```
-
-Or run `sudo ./setup.sh` and select step **19 (token vending)**.
-
-### 2. Create config.yaml
-
-```bash
 sudo cp token-vending/config.example.yaml /etc/token-vending/config.yaml
 sudo nano /etc/token-vending/config.yaml
 ```
 
-Example:
+### 2. Set up providers and place secret files (manual)
+
+This is the part you do outside the wizard — creating GitHub Apps, Google service
+accounts, etc. and placing their keys on the host. See the provider sections below
+for specific instructions.
+
+Example for GitHub:
+
+```bash
+# After creating a GitHub App and downloading its private key:
+sudo cp your-github-app.pem /etc/token-vending/github-key.pem
+sudo chmod 600 /etc/token-vending/github-key.pem
+```
+
+Then edit `/etc/token-vending/config.yaml` with the provider details:
 
 ```yaml
 github:
@@ -53,16 +66,7 @@ github:
   key_file: github-key.pem
 ```
 
-### 3. Place secret files
-
-Copy secret files into `/etc/token-vending/` alongside config.yaml:
-
-```bash
-sudo cp your-github-app.pem /etc/token-vending/github-key.pem
-sudo chmod 600 /etc/token-vending/github-key.pem
-```
-
-### 4. Start
+### 3. Start (wizard step 18, or manual)
 
 ```bash
 sudo ./restart.sh
@@ -70,6 +74,7 @@ sudo ./restart.sh
 
 The service auto-discovers which providers are configured and enables them.
 Providers with missing config or secret files are silently skipped.
+The wizard's test option (step 19 > option 2) can verify the socket is working.
 
 ## Providers
 
@@ -90,14 +95,15 @@ Installation ID is auto-discovered at startup. Set `installation_id` explicitly 
 
 **Secret file:** The App's private key (.pem), downloaded from GitHub App settings > Private keys.
 
-**Setup:**
+**Setup (manual — these steps are done on GitHub, not the wizard):**
 
 1. Go to **GitHub > Settings > Developer settings > GitHub Apps > New GitHub App**
 2. Set permissions to only what Chloe needs (e.g. Contents: RW, Pull requests: RW, Issues: RW)
 3. Uncheck Webhook "Active" (not needed)
 4. Create, then **Install App** on your org — select only the repos Chloe needs
 5. Note the **Client ID** from the App settings page
-6. Generate a private key and place it in the secrets dir
+6. Generate a private key, copy it to `/etc/token-vending/github-key.pem` on the host
+7. Add the `github` section to `/etc/token-vending/config.yaml` (wizard step 19 opens the editor)
 
 **Usage:**
 
