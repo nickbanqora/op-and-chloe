@@ -22,3 +22,13 @@ github:
 #     - https://www.googleapis.com/auth/gmail.modify
 #     - https://www.googleapis.com/auth/calendar
 #     - https://www.googleapis.com/auth/drive
+
+# Notion public integration — vends OAuth2 access tokens via refresh token
+# Setup: notion.so/profile/integrations > New integration > Type: Public
+# Do the OAuth flow locally to get the initial refresh token, then place
+# the client secret and refresh token as files in the secrets dir.
+# The sidecar updates the refresh token file on each use (Notion rotates it).
+# notion:
+#   client_id: "your-oauth-client-id"
+#   client_secret_file: notion-client-secret
+#   refresh_token_file: notion-refresh-token
