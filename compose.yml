@@ -83,10 +83,8 @@ services:
     networks:
       - token_vending_egress
     environment:
-      GITHUB_APP_ID: ${GITHUB_APP_ID}
-      GITHUB_APP_INSTALLATION_ID: ${GITHUB_APP_INSTALLATION_ID}
-      GITHUB_PRIVATE_KEY_PATH: /etc/token-vending/github-key.pem
       SOCKET_PATH: /var/run/token-vending/vending.sock
+      SECRETS_DIR: /etc/token-vending
     volumes:
       - token-vending-sock:/var/run/token-vending
       - ${TOKEN_VENDING_SECRETS_DIR:-/etc/token-vending}:/etc/token-vending:ro

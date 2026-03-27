@@ -1,15 +1,39 @@
+import fs from "node:fs";
+import path from "node:path";
 import jwt from "jsonwebtoken";
+
+export const name = "github";
+export const description = "GitHub App installation tokens (1hr TTL)";
+
+/**
+ * Check if this provider is configured. Returns config object or null.
+ * Expects config.yaml to have a `github` section with app_id, installation_id, key_file.
+ */
+export function check(config, secretsDir) {
+  const gh = config?.github;
+  if (!gh) return null;
+  if (!gh.app_id || !gh.installation_id || !gh.key_file) return null;
+
+  const keyPath = path.join(secretsDir, gh.key_file);
+  if (!fs.existsSync(keyPath)) return null;
+
+  return { appId: String(gh.app_id), installationId: String(gh.installation_id), keyPath };
+}
+
+/**
+ * Initialise provider state (called once at startup).
+ */
+export function init(providerConfig) {
+  const privateKey = fs.readFileSync(providerConfig.keyPath, "utf-8");
+  return { privateKey, appId: providerConfig.appId, installationId: providerConfig.installationId };
+}
 
 let cachedToken = null;
 
 function generateAppJwt(appId, privateKey) {
   const now = Math.floor(Date.now() / 1000);
   return jwt.sign(
-    {
-      iat: now - 60, // clock drift allowance
-      exp: now + 10 * 60, // 10 minute max for app JWTs
-      iss: appId,
-    },
+    { iat: now - 60, exp: now + 10 * 60, iss: appId },
     privateKey,
     { algorithm: "RS256" }
   );
@@ -35,8 +59,10 @@ async function createInstallationToken(appJwt, installationId, body) {
   return res.json();
 }
 
-export async function vendGitHubToken(appId, installationId, privateKey, options = {}) {
-  // Return cached token if still valid (with 5 min buffer)
+/**
+ * Vend a short-lived token. options.repos and options.permissions allow down-scoping.
+ */
+export async function vend(state, options = {}) {
   if (cachedToken && !options.repos && !options.permissions) {
     const expiresAt = new Date(cachedToken.expires_at).getTime();
     if (Date.now() < expiresAt - 5 * 60 * 1000) {
@@ -44,21 +70,25 @@ export async function vendGitHubToken(appId, installationId, privateKey, options
     }
   }
 
-  const appJwt = generateAppJwt(appId, privateKey);
+  const appJwt = generateAppJwt(state.appId, state.privateKey);
 
-  // Optional down-scoping: caller can request fewer repos/permissions
-  // than the App installation has. GitHub will reject if you ask for MORE.
   const body = {};
   if (options.repos) body.repositories = options.repos;
   if (options.permissions) body.permissions = options.permissions;
 
-  const token = await createInstallationToken(
+  const result = await createInstallationToken(
     appJwt,
-    installationId,
+    state.installationId,
     Object.keys(body).length > 0 ? body : undefined
   );
 
-  // Only cache un-scoped tokens (scoped ones may vary per request)
+  const token = {
+    token: result.token,
+    expires_at: result.expires_at,
+    permissions: result.permissions,
+    repositories: result.repositories?.map((r) => r.full_name),
+  };
+
   if (!options.repos && !options.permissions) {
     cachedToken = token;
   }

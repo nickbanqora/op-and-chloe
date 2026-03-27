@@ -1,0 +1,16 @@
+# Token vending provider configuration.
+# Place this file at /etc/token-vending/config.yaml on the host.
+# Secret files referenced below go in the same directory.
+# Only providers with valid config AND matching secret files are enabled.
+
+# GitHub App — vends short-lived installation tokens (1hr TTL)
+# Setup: GitHub > Settings > Developer settings > GitHub Apps > New
+github:
+  app_id: "123456"
+  installation_id: "78901234"
+  key_file: github-key.pem           # relative to /etc/token-vending/
+
+# Google service account — vends OAuth2 access tokens (1hr TTL)
+# Setup: GCP Console > IAM > Service Accounts > Create key (JSON)
+# google:
+#   service_account_file: google-sa.json

@@ -1,8 +1,13 @@
 import http from "node:http";
 import fs from "node:fs";
-import { vendGitHubToken } from "./providers/github.js";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import { parseConfig } from "./config.js";
 
 const SOCKET_PATH = process.env.SOCKET_PATH || "/var/run/token-vending/vending.sock";
+const SECRETS_DIR = process.env.SECRETS_DIR || "/etc/token-vending";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 function json(res, status, data) {
   res.writeHead(status, { "Content-Type": "application/json" });
@@ -26,93 +31,104 @@ function parseBody(req) {
 }
 
 function log(method, path, status, extra) {
-  const entry = {
-    ts: new Date().toISOString(),
-    method,
-    path,
-    status,
-    ...extra,
-  };
+  const entry = { ts: new Date().toISOString(), method, path, status, ...extra };
   process.stdout.write(JSON.stringify(entry) + "\n");
 }
 
-async function main() {
-  // --- Load config ---
-  const appId = process.env.GITHUB_APP_ID;
-  const installationId = process.env.GITHUB_APP_INSTALLATION_ID;
-  const keyPath = process.env.GITHUB_PRIVATE_KEY_PATH || "/etc/token-vending/github-key.pem";
+/**
+ * Load config.yaml from secrets dir, then discover and initialise providers.
+ */
+async function discoverProviders(config) {
+  const providersDir = path.join(__dirname, "providers");
+  const files = fs.readdirSync(providersDir).filter((f) => f.endsWith(".js"));
+  const providers = new Map();
 
-  if (!appId || !installationId) {
-    console.error("GITHUB_APP_ID and GITHUB_APP_INSTALLATION_ID are required");
-    process.exit(1);
-  }
+  for (const file of files) {
+    const mod = await import(path.join(providersDir, file));
 
-  // --- Read private key from mounted file ---
-  let privateKey;
-  try {
-    privateKey = fs.readFileSync(keyPath, "utf-8");
-  } catch (err) {
-    console.error(`Failed to read private key from ${keyPath}: ${err.message}`);
-    process.exit(1);
-  }
-  console.log("Private key loaded successfully");
+    if (!mod.name || !mod.check || !mod.init || !mod.vend) {
+      console.warn(`Skipping ${file}: missing required exports (name, check, init, vend)`);
+      continue;
+    }
 
-  // --- HTTP server ---
-  const server = http.createServer(async (req, res) => {
-    const url = new URL(req.url, "http://localhost");
-    const path = url.pathname;
+    const providerConfig = mod.check(config, SECRETS_DIR);
+    if (!providerConfig) {
+      console.log(`Provider ${mod.name}: not configured, skipping`);
+      continue;
+    }
 
     try {
-      // Health check
-      if (path === "/health") {
-        return json(res, 200, { status: "ok" });
-      }
-
-      // Vend a GitHub installation token
-      if (path === "/token/github" && (req.method === "GET" || req.method === "POST")) {
-        const body = await parseBody(req);
-
-        const token = await vendGitHubToken(appId, installationId, privateKey, {
-          repos: body.repos,
-          permissions: body.permissions,
-        });
-
-        log(req.method, path, 200, {
-          repos: body.repos || "all",
-          permissions: body.permissions || "app-default",
-          expires_at: token.expires_at,
-        });
-
-        return json(res, 200, {
-          token: token.token,
-          expires_at: token.expires_at,
-          permissions: token.permissions,
-          repositories: token.repositories?.map((r) => r.full_name),
-        });
-      }
-
-      log(req.method, path, 404);
-      return json(res, 404, { error: "not found" });
+      const state = mod.init(providerConfig);
+      providers.set(mod.name, { mod, state, description: mod.description });
+      console.log(`Provider ${mod.name}: enabled`);
     } catch (err) {
-      log(req.method, path, 500, { error: err.message });
+      console.error(`Provider ${mod.name}: init failed - ${err.message}`);
+    }
+  }
+
+  return providers;
+}
+
+async function main() {
+  const configPath = path.join(SECRETS_DIR, "config.yaml");
+  const config = parseConfig(configPath);
+  const providers = await discoverProviders(config);
+
+  if (providers.size === 0) {
+    console.error("No providers configured. Add provider config to " + configPath + " and place secret files in " + SECRETS_DIR);
+    console.error("The service will start and serve /health but no /token/* routes.");
+  }
+
+  const server = http.createServer(async (req, res) => {
+    const url = new URL(req.url, "http://localhost");
+    const pathname = url.pathname;
+
+    try {
+      if (pathname === "/health") {
+        const providerStatus = {};
+        for (const [name, { description }] of providers) {
+          providerStatus[name] = description;
+        }
+        return json(res, 200, { status: "ok", providers: providerStatus });
+      }
+
+      const match = pathname.match(/^\/token\/([a-z0-9_-]+)$/);
+      if (match && (req.method === "GET" || req.method === "POST")) {
+        const providerName = match[1];
+        const provider = providers.get(providerName);
+
+        if (!provider) {
+          log(req.method, pathname, 404, { error: "provider not configured" });
+          return json(res, 404, {
+            error: `provider "${providerName}" is not configured`,
+            configured: [...providers.keys()],
+          });
+        }
+
+        const body = await parseBody(req);
+        const result = await provider.mod.vend(provider.state, body);
+
+        log(req.method, pathname, 200, { provider: providerName });
+        return json(res, 200, result);
+      }
+
+      log(req.method, pathname, 404);
+      return json(res, 404, { error: "not found", routes: ["/health", "/token/:provider"] });
+    } catch (err) {
+      log(req.method, pathname, 500, { error: err.message });
       return json(res, 500, { error: err.message });
     }
   });
 
-  // Clean up stale socket
   if (fs.existsSync(SOCKET_PATH)) fs.unlinkSync(SOCKET_PATH);
-
-  // Ensure socket directory exists
   const socketDir = SOCKET_PATH.substring(0, SOCKET_PATH.lastIndexOf("/"));
   fs.mkdirSync(socketDir, { recursive: true });
 
   server.listen(SOCKET_PATH, () => {
-    // rw for owner and group, nothing for others
     fs.chmodSync(SOCKET_PATH, 0o660);
     console.log(`Token vending service listening on ${SOCKET_PATH}`);
   });
 
-  // Graceful shutdown
   for (const sig of ["SIGTERM", "SIGINT"]) {
     process.on(sig, () => {
       console.log(`Received ${sig}, shutting down`);

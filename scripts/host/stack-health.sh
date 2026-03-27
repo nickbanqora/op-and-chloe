@@ -27,5 +27,17 @@ else
 fi
 
 echo
+printf "== token vending ==\n"
+TV_CONTAINER=${TV_CONTAINER:-${INSTANCE}-token-vending}
+if docker ps -q -f "name=$TV_CONTAINER" 2>/dev/null | grep -q .; then
+  # Test health via worker container's socket mount
+  health=$(docker exec "$GW_CONTAINER" curl -sf --unix-socket /var/run/token-vending/vending.sock http://localhost/health 2>/dev/null) && \
+    echo "✅ Token vending - Running ($(echo "$health" | python3 -c 'import sys,json; p=json.load(sys.stdin).get("providers",{}); print(", ".join(p.keys()) if p else "no providers")' 2>/dev/null || echo 'unknown'))" || \
+    echo "⚠️  Token vending - Container running but socket health check failed"
+else
+  echo "⚪ Token vending - Not running"
+fi
+
+echo
 printf "== recent gateway logs (tail) ==\n"
 docker logs "$GW_CONTAINER" --tail=20

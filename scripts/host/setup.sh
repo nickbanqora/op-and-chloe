@@ -41,6 +41,7 @@ welcome(){
   echo "┃   🔐 Tailscale for private network access                  ┃"
   echo "┃   🔑 Bitwarden (passwordless: no secrets in files)         ┃"
   echo "┃   ❤️ Healthcheck + watchdog validation                      ┃"
+  echo "┃   🎟️ Token vending (short-lived GitHub credentials)        ┃"
   echo "┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛"
 }
 
@@ -86,6 +87,7 @@ step_status(){
     16) echo "" ;;
     17) echo "" ;;
     18) echo "" ;;
+    19) check_done token_vending && echo "✅ Configured" || echo "⚪ Not configured" ;;
     *) echo "—" ;;
   esac
 }
@@ -555,7 +557,77 @@ step_guard_admin_mode(){
   fi
 }
 
+step_token_vending(){
+  say "Token vending (short-lived credentials for Chloe)"
+  say "The token-vending sidecar lets Chloe request short-lived tokens via a Unix socket."
+  say "Chloe never sees the underlying secrets (private keys, service accounts, etc.)."
+  echo
+  local tv_dir="${TOKEN_VENDING_SECRETS_DIR:-/etc/token-vending}"
+  local config_file="$tv_dir/config.yaml"
+  local tv_name="${INSTANCE}-token-vending"
 
+  # Show current status
+  if [ -f "$config_file" ]; then
+    ok "Config found: $config_file"
+    echo "  Configured providers:"
+    # List top-level YAML keys that aren't comments (simple grep, not a full parser)
+    grep -E '^[a-z]' "$config_file" | sed 's/:.*//; s/^/    - /' 2>/dev/null || echo "    (none)"
+    echo
+    # List secret files
+    echo "  Secret files in $tv_dir:"
+    ls -1 "$tv_dir" 2>/dev/null | grep -v config | sed 's/^/    - /' || echo "    (none)"
+  else
+    echo "  No config file found at $config_file"
+  fi
+
+  if container_running "$tv_name"; then
+    ok "Container: running"
+  else
+    echo "  Container: not running"
+  fi
+  echo
+
+  echo "Options:"
+  echo "  1. Create / edit config"
+  echo "  2. Test token vending (from worker container)"
+  echo "  0. Return"
+  echo
+  read -r -p "$TIGER Select [0-2]: " tv_pick
+  case "${tv_pick:-0}" in
+    1)
+      mkdir -p "$tv_dir"
+      chmod 700 "$tv_dir"
+      if [ ! -f "$config_file" ]; then
+        cp "$STACK_DIR/token-vending/config.example.yaml" "$config_file"
+        ok "Created $config_file from example — edit it with your provider details"
+      fi
+      if command -v nano >/dev/null 2>&1; then
+        nano "$config_file"
+      elif command -v vi >/dev/null 2>&1; then
+        vi "$config_file"
+      else
+        warn "No editor found. Edit $config_file manually."
+      fi
+      echo
+      say "After editing, place your secret files (e.g. github-key.pem) in $tv_dir"
+      say "Then restart: docker compose --env-file $ENV_FILE restart token-vending"
+      ;;
+    2)
+      if ! container_running "$tv_name"; then
+        warn "Token-vending container is not running. Start it first (step 18 or docker compose up -d token-vending)."
+      elif ! container_running "$worker_name"; then
+        warn "Worker container is not running."
+      else
+        local worker_actual
+        worker_actual=$(resolve_container_name "$worker_name" 2>/dev/null)
+        worker_actual=${worker_actual:-$worker_name}
+        say "Querying /health from worker container..."
+        docker exec "$worker_actual" curl -sf --unix-socket /var/run/token-vending/vending.sock http://localhost/health 2>&1 | python3 -m json.tool 2>/dev/null || warn "Health check failed — is the socket mounted?"
+      fi
+      ;;
+    0|*) ok "No changes" ;;
+  esac
+}
 
 ensure_guard_approval_instructions(){
   local gws="/var/lib/openclaw/guard/workspace"
@@ -695,6 +767,9 @@ check_done(){
       fi
       [ -s "$bw_session_file" ] && return 0
       return 1
+      ;;
+    token_vending)
+      [ -f "${TOKEN_VENDING_SECRETS_DIR:-/etc/token-vending}/config.yaml" ] || return 1
       ;;
     *) return 1 ;;
   esac
@@ -1348,6 +1423,7 @@ run_step(){
     16) step_verify ;;
     17) step_help_useful_commands ;;
     18) step_restart_all ;;
+    19) step_token_vending ;;
     *) warn "Unknown step" ;;
   esac
   fix_repo_ownership
@@ -1380,6 +1456,7 @@ menu_once(){
   printf "  %2d. %-24s | %s\n" 16 "healthcheck"        "$(step_status 16)"
   printf "  %2d. %-24s | %s\n" 17 "help / useful cmds" "$(step_status 17)"
   printf "  %2d. %-24s | %s\n" 18 "restart all services" "$(step_status 18)"
+  printf "  %2d. %-24s | %s\n" 19 "token vending"        "$(step_status 19)"
   echo
   if check_done tailscale; then
     menu_tsdns=$(tailscale_dns)
@@ -1391,10 +1468,10 @@ menu_once(){
       echo
     fi
   fi
-  read -r -p "$TIGER Select step [1-18] or 0 to exit: " pick
+  read -r -p "$TIGER Select step [1-19] or 0 to exit: " pick
   case "$pick" in
     0) say "Exiting setup wizard. See you soon."; return 1 ;;
-    1|2|3|4|5|6|7|8|9|10|11|12|13|14|15|16|17|18) run_step "$pick" ;;
+    1|2|3|4|5|6|7|8|9|10|11|12|13|14|15|16|17|18|19) run_step "$pick" ;;
     *) warn "Invalid choice" ;;
   esac
   return 0
