@@ -1065,6 +1065,8 @@ step_configure_guard(){
 step_configure_worker(){
   local pretty
   pretty=$(title_case_name "$INSTANCE")
+  "$STACK_DIR/openclaw-worker" config set gateway.port 18789 >/dev/null 2>&1 || true
+  "$STACK_DIR/openclaw-worker" config set gateway.bind loopback >/dev/null 2>&1 || true
   say "Run configure worker"
   say "Chloe is your day-to-day instance — connect models and Telegram bot here; create all agents here."
   echo
