@@ -75,6 +75,7 @@ services:
     command: ["node", "dist/index.js", "gateway", "--bind", "loopback", "--port", "18790", "--allow-unconfigured"]
 
   token-vending:
+    profiles: ["token-vending"]
     image: ${TOKEN_VENDING_IMAGE:-token-vending:local}
     build:
       context: .

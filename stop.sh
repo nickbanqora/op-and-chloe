@@ -8,5 +8,10 @@ COMPOSE_FILE=${COMPOSE_FILE:-$STACK_DIR/compose.yml}
 
 cd "$STACK_DIR"
 
+PROFILE_FLAGS=""
+if [ -f "${TOKEN_VENDING_SECRETS_DIR:-/etc/token-vending}/config.yaml" ]; then
+  PROFILE_FLAGS="--profile token-vending"
+fi
+
 echo "[stop] stopping services (no volume deletion)"
-docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" stop
+docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" $PROFILE_FLAGS stop

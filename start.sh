@@ -10,20 +10,30 @@ INSTANCE=${INSTANCE:-op-and-chloe}
 
 cd "$STACK_DIR"
 
+# Enable token-vending profile if configured
+TV_SECRETS_DIR="${TOKEN_VENDING_SECRETS_DIR:-/etc/token-vending}"
+PROFILE_FLAGS=""
+if [ -f "$TV_SECRETS_DIR/config.yaml" ]; then
+  PROFILE_FLAGS="--profile token-vending"
+  echo "[start] token-vending: config found, enabling profile"
+else
+  echo "[start] token-vending: no config found, skipping"
+fi
+
 echo "[start] syncing core instructions into workspaces"
 bash "$STACK_DIR/scripts/host/sync-workspaces.sh"
 
-echo "[start] building guard, worker, and token-vending images"
-docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" build openclaw-guard openclaw-gateway token-vending
+echo "[start] building images"
+docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" $PROFILE_FLAGS build openclaw-guard openclaw-gateway
 
 echo "[start] pulling images (browser only; guard/worker are local builds)"
-docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" pull browser
+docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" $PROFILE_FLAGS pull browser
 
 echo "[start] bringing stack up"
-docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" up -d
+docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" $PROFILE_FLAGS up -d
 
 echo "[start] container status"
-docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" ps
+docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" $PROFILE_FLAGS ps
 
 echo "[start] warming up browser/CDP"
 sleep 10
