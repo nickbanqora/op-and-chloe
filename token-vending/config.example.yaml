@@ -11,6 +11,13 @@ github:
   key_file: github-key.pem           # relative to /etc/token-vending/
 
 # Google service account — vends OAuth2 access tokens (1hr TTL)
+# Uses domain-wide delegation to access Workspace APIs on behalf of a user.
 # Setup: GCP Console > IAM > Service Accounts > Create key (JSON)
+#        Then enable domain-wide delegation in Workspace Admin > Security > API controls
 # google:
 #   service_account_file: google-sa.json
+#   subject: user@company.com            # user to impersonate via delegation
+#   default_scopes:
+#     - https://www.googleapis.com/auth/gmail.modify
+#     - https://www.googleapis.com/auth/calendar
+#     - https://www.googleapis.com/auth/drive
