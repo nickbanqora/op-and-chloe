@@ -40,6 +40,7 @@ services:
       - ${OPENCLAW_STATE_DIR:-/var/lib/openclaw/chloe/state}:/home/node/.openclaw
       - ${OPENCLAW_WORKSPACE_DIR:-/var/lib/openclaw/chloe/workspace}:/home/node/.openclaw/workspace
       - ${OPENCLAW_STACK_DIR:-/opt/op-and-chloe}:/opt/op-and-chloe:ro
+      - token-vending-sock:/var/run/token-vending:ro
     init: true
     restart: unless-stopped
     command: ["node","dist/index.js","gateway","--bind","loopback","--port","18789","--allow-unconfigured"]
@@ -73,6 +74,25 @@ services:
     restart: unless-stopped
     command: ["node", "dist/index.js", "gateway", "--bind", "loopback", "--port", "18790", "--allow-unconfigured"]
 
+  token-vending:
+    image: ${TOKEN_VENDING_IMAGE:-token-vending:local}
+    build:
+      context: .
+      dockerfile: docker/token-vending.Dockerfile
+    container_name: ${INSTANCE:-op-and-chloe}-token-vending
+    networks:
+      - token_vending_egress
+    environment:
+      GITHUB_APP_ID: ${GITHUB_APP_ID}
+      GITHUB_APP_INSTALLATION_ID: ${GITHUB_APP_INSTALLATION_ID}
+      GITHUB_PRIVATE_KEY_PATH: /etc/token-vending/github-key.pem
+      SOCKET_PATH: /var/run/token-vending/vending.sock
+    volumes:
+      - token-vending-sock:/var/run/token-vending
+      - ${TOKEN_VENDING_SECRETS_DIR:-/etc/token-vending}:/etc/token-vending:ro
+    init: true
+    restart: unless-stopped
+
 networks:
   openclaw_net:
     name: ${INSTANCE:-op-and-chloe}-net
@@ -80,3 +100,9 @@ networks:
     ipam:
       config:
         - subnet: ${DOCKER_SUBNET:-172.31.0.0/24}
+  token_vending_egress:
+    name: ${INSTANCE:-op-and-chloe}-tv-egress
+    driver: bridge
+
+volumes:
+  token-vending-sock:
