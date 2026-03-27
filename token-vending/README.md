@@ -49,8 +49,7 @@ Example:
 
 ```yaml
 github:
-  app_id: "123456"
-  installation_id: "78901234"
+  client_id: "Iv1.abc123def456"
   key_file: github-key.pem
 ```
 
@@ -83,10 +82,11 @@ to fewer repos/permissions per request.
 
 ```yaml
 github:
-  app_id: "123456"                # from GitHub App settings page
-  installation_id: "78901234"     # from installation URL
+  client_id: "Iv1.abc123def456"   # from GitHub App settings page
   key_file: github-key.pem       # relative to secrets dir
 ```
+
+Installation ID is auto-discovered at startup. Set `installation_id` explicitly only if the App is installed on multiple orgs.
 
 **Secret file:** The App's private key (.pem), downloaded from GitHub App settings > Private keys.
 
@@ -96,7 +96,7 @@ github:
 2. Set permissions to only what Chloe needs (e.g. Contents: RW, Pull requests: RW, Issues: RW)
 3. Uncheck Webhook "Active" (not needed)
 4. Create, then **Install App** on your org — select only the repos Chloe needs
-5. Note the App ID (settings page) and Installation ID (from URL after installing)
+5. Note the **Client ID** from the App settings page
 6. Generate a private key and place it in the secrets dir
 
 **Usage:**
