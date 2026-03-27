@@ -5,10 +5,12 @@
 
 # GitHub App — vends short-lived installation tokens (1hr TTL)
 # Setup: GitHub > Settings > Developer settings > GitHub Apps > New
+# Installation ID is auto-discovered. Set it explicitly only if the App
+# is installed on multiple orgs and you need to pick one.
 github:
   app_id: "123456"
-  installation_id: "78901234"
   key_file: github-key.pem           # relative to /etc/token-vending/
+  # installation_id: "78901234"      # optional — auto-discovered
 
 # Google service account — vends OAuth2 access tokens (1hr TTL)
 # Uses domain-wide delegation to access Workspace APIs on behalf of a user.

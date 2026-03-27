@@ -58,7 +58,7 @@ async function discoverProviders(config) {
     }
 
     try {
-      const state = mod.init(providerConfig);
+      const state = await mod.init(providerConfig);
       providers.set(mod.name, { mod, state, description: mod.description });
       console.log(`Provider ${mod.name}: enabled`);
     } catch (err) {

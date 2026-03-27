@@ -6,29 +6,24 @@ export const name = "github";
 export const description = "GitHub App installation tokens (1hr TTL)";
 
 /**
- * Check if this provider is configured. Returns config object or null.
- * Expects config.yaml to have a `github` section with app_id, installation_id, key_file.
+ * Check if this provider is configured.
+ * Expects config.yaml to have a `github` section with app_id and key_file.
+ * installation_id is optional — discovered automatically if omitted.
  */
 export function check(config, secretsDir) {
   const gh = config?.github;
   if (!gh) return null;
-  if (!gh.app_id || !gh.installation_id || !gh.key_file) return null;
+  if (!gh.app_id || !gh.key_file) return null;
 
   const keyPath = path.join(secretsDir, gh.key_file);
   if (!fs.existsSync(keyPath)) return null;
 
-  return { appId: String(gh.app_id), installationId: String(gh.installation_id), keyPath };
+  return {
+    appId: String(gh.app_id),
+    installationId: gh.installation_id ? String(gh.installation_id) : null,
+    keyPath,
+  };
 }
-
-/**
- * Initialise provider state (called once at startup).
- */
-export function init(providerConfig) {
-  const privateKey = fs.readFileSync(providerConfig.keyPath, "utf-8");
-  return { privateKey, appId: providerConfig.appId, installationId: providerConfig.installationId };
-}
-
-let cachedToken = null;
 
 function generateAppJwt(appId, privateKey) {
   const now = Math.floor(Date.now() / 1000);
@@ -38,6 +33,48 @@ function generateAppJwt(appId, privateKey) {
     { algorithm: "RS256" }
   );
 }
+
+async function discoverInstallationId(appJwt) {
+  const res = await fetch("https://api.github.com/app/installations", {
+    headers: {
+      Authorization: `Bearer ${appJwt}`,
+      Accept: "application/vnd.github+json",
+      "X-GitHub-Api-Version": "2022-11-28",
+    },
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Failed to list installations: ${res.status}: ${text}`);
+  }
+  const installations = await res.json();
+  if (installations.length === 0) {
+    throw new Error("GitHub App has no installations — install it on your org/repos first");
+  }
+  if (installations.length > 1) {
+    const ids = installations.map((i) => `${i.id} (${i.account?.login})`).join(", ");
+    console.warn(`Multiple installations found: ${ids} — using first. Set installation_id in config.yaml to choose.`);
+  }
+  return String(installations[0].id);
+}
+
+/**
+ * Initialise provider state (called once at startup).
+ */
+export async function init(providerConfig) {
+  const privateKey = fs.readFileSync(providerConfig.keyPath, "utf-8");
+  const appId = providerConfig.appId;
+
+  let installationId = providerConfig.installationId;
+  if (!installationId) {
+    const appJwt = generateAppJwt(appId, privateKey);
+    installationId = await discoverInstallationId(appJwt);
+    console.log(`GitHub: auto-discovered installation ID: ${installationId}`);
+  }
+
+  return { privateKey, appId, installationId };
+}
+
+let cachedToken = null;
 
 async function createInstallationToken(appJwt, installationId, body) {
   const res = await fetch(
