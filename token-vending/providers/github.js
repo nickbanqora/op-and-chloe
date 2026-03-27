@@ -7,28 +7,28 @@ export const description = "GitHub App installation tokens (1hr TTL)";
 
 /**
  * Check if this provider is configured.
- * Expects config.yaml to have a `github` section with app_id and key_file.
+ * Expects config.yaml to have a `github` section with client_id and key_file.
  * installation_id is optional — discovered automatically if omitted.
  */
 export function check(config, secretsDir) {
   const gh = config?.github;
   if (!gh) return null;
-  if (!gh.app_id || !gh.key_file) return null;
+  if (!gh.client_id || !gh.key_file) return null;
 
   const keyPath = path.join(secretsDir, gh.key_file);
   if (!fs.existsSync(keyPath)) return null;
 
   return {
-    appId: String(gh.app_id),
+    clientId: String(gh.client_id),
     installationId: gh.installation_id ? String(gh.installation_id) : null,
     keyPath,
   };
 }
 
-function generateAppJwt(appId, privateKey) {
+function generateAppJwt(clientId, privateKey) {
   const now = Math.floor(Date.now() / 1000);
   return jwt.sign(
-    { iat: now - 60, exp: now + 10 * 60, iss: appId },
+    { iat: now - 60, exp: now + 10 * 60, iss: clientId },
     privateKey,
     { algorithm: "RS256" }
   );
@@ -62,16 +62,16 @@ async function discoverInstallationId(appJwt) {
  */
 export async function init(providerConfig) {
   const privateKey = fs.readFileSync(providerConfig.keyPath, "utf-8");
-  const appId = providerConfig.appId;
+  const clientId = providerConfig.clientId;
 
   let installationId = providerConfig.installationId;
   if (!installationId) {
-    const appJwt = generateAppJwt(appId, privateKey);
+    const appJwt = generateAppJwt(clientId, privateKey);
     installationId = await discoverInstallationId(appJwt);
     console.log(`GitHub: auto-discovered installation ID: ${installationId}`);
   }
 
-  return { privateKey, appId, installationId };
+  return { privateKey, clientId, installationId };
 }
 
 let cachedToken = null;
@@ -107,7 +107,7 @@ export async function vend(state, options = {}) {
     }
   }
 
-  const appJwt = generateAppJwt(state.appId, state.privateKey);
+  const appJwt = generateAppJwt(state.clientId, state.privateKey);
 
   const body = {};
   if (options.repos) body.repositories = options.repos;

@@ -5,10 +5,9 @@
 
 # GitHub App — vends short-lived installation tokens (1hr TTL)
 # Setup: GitHub > Settings > Developer settings > GitHub Apps > New
-# Installation ID is auto-discovered. Set it explicitly only if the App
-# is installed on multiple orgs and you need to pick one.
+# Only client_id and key_file are required. Installation ID is auto-discovered.
 github:
-  app_id: "123456"
+  client_id: "Iv1.abc123def456"
   key_file: github-key.pem           # relative to /etc/token-vending/
   # installation_id: "78901234"      # optional — auto-discovered
 
