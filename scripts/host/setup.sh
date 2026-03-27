@@ -876,6 +876,14 @@ step_env(){
     mkdir -p /etc/openclaw /var/lib/openclaw/{chloe/state,chloe/state/devices,chloe/workspace,guard/state,guard/state/devices,guard/workspace,browser}
     chown -R 1000:1000 /var/lib/openclaw/chloe /var/lib/openclaw/guard /var/lib/openclaw/browser
   fi
+  # Token vending secrets directory (created on every run; safe for upgrades)
+  local tv_dir="${TOKEN_VENDING_SECRETS_DIR:-/etc/token-vending}"
+  mkdir -p "$tv_dir"
+  chmod 700 "$tv_dir"
+  if [ ! -f "$tv_dir/config.yaml" ] && [ -f "$STACK_DIR/token-vending/config.example.yaml" ]; then
+    cp "$STACK_DIR/token-vending/config.example.yaml" "$tv_dir/config.yaml"
+    ok "Created $tv_dir/config.yaml from example — edit it in step 19 (token vending)"
+  fi
   if [ ! -f "$ENV_FILE" ]; then
     cp "$STACK_DIR/config/env.example" "$ENV_FILE"
     sed -i "s#^OPENCLAW_GATEWAY_TOKEN=.*#OPENCLAW_GATEWAY_TOKEN=$(openssl rand -hex 32)#" "$ENV_FILE"
@@ -893,6 +901,7 @@ step_env(){
   echo "  /var/lib/openclaw/chloe/state"
   echo "  /var/lib/openclaw/chloe/workspace"
   echo "  /var/lib/openclaw/browser"
+  echo "  ${TOKEN_VENDING_SECRETS_DIR:-/etc/token-vending}/"
   echo "  $ENV_FILE"
 }
 
