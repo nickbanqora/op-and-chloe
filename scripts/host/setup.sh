@@ -680,15 +680,12 @@ step_token_vending(){
 ensure_guard_approval_instructions(){
   local gws="/var/lib/openclaw/guard/workspace"
   mkdir -p "$gws"
-  cat > "$gws/APPROVALS.md" <<'EOF'
-# Exec Approvals (OpenClaw)
+  cat > "$gws/APPROVALS.md" <<’EOF’
+# Op — Monitoring Instance
 
-Op is the admin instance. When Op runs a host command that isn’t on the allowlist, OpenClaw may prompt for approval.
+Op is the monitoring and oversight instance. Op watches Chloe by reading files at /mnt/chloe-state/ and /mnt/chloe-workspace/ (read-only).
 
-- Pending / allowlist: ./openclaw-guard approvals get --json
-- Add allowlist: ./openclaw-guard approvals allowlist add "<path or glob>"
-- Approve in Control UI: Nodes → Exec approvals
-- In chat: /approve <id> allow-once | allow-always | deny
+Op does NOT have Docker access, SSH access, or host access. Op uses cat, ls, find, grep to read Chloe’s files. See ROLE.md for full instructions.
 EOF
   chown 1000:1000 "$gws/APPROVALS.md" 2>/dev/null || true
 }
