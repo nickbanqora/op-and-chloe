@@ -6,7 +6,7 @@
 
 `op-and-chloe` ("openclaw-ey") is a two-instance OpenClaw stack for any VPS.
 
-- **🐕 Op**: admin instance with SSH access — fix Chloe, restarts, large architectural changes
+- **🐕 Op**: monitoring/oversight instance — watches Chloe, alerts on suspicious activity, can pause her
 - **🐯 Chloe**: day-to-day instance — create all agents here; has Bitwarden, email, M365, webtop
 - 🖥️ Webtop Chromium + CDP for shared browser (you + Chloe)
 - 🔐 Passwordless: Bitwarden in Chloe; login/unlock interactive only, no secrets in files
@@ -79,7 +79,7 @@ sudo ./setup.sh
 
 The stack consists of:
 - **Three Docker containers:**
-  - **🐕 Op**: admin instance with SSH access. For fixing Chloe, restarts, and large architectural changes.
+  - **🐕 Op**: monitoring/oversight instance. Watches Chloe's activity, alerts on suspicious behavior, can pause her. Optional admin mode for emergencies.
   - **🐯 Chloe**: day-to-day instance. Create all agents here. Has Bitwarden, email (Himalaya, M365), and webtop.
   - **🖥️ Webtop**: shared browser for you and Chloe (co-working, automation).
 
@@ -105,12 +105,12 @@ When things break or you need restarts or big changes, talk to Op (admin with SS
 
 ### 2. Op
 
-**Op** is the admin instance with **SSH access**. Op’s job is to:
-- fix Chloe when she breaks,
-- do restarts, Docker, repo, and host changes,
-- handle large architectural changes (whatever you’d otherwise SSH in to do).
+**Op** is the monitoring and oversight instance. Op’s job is to:
+- watch what Chloe is doing (read-only access to her state and workspace),
+- alert you via Slack/Telegram if something looks suspicious,
+- pause Chloe immediately if needed, and wait for your approval before resuming.
 
-You talk to Chloe for day-to-day work (create all agents there). You talk to Op when you need admin. 
+You talk to Chloe for day-to-day work (create all agents there). Op watches in the background and contacts you if something is wrong. For admin tasks (restarts, deploys), SSH to the host directly. Admin mode is available as an emergency escalation in the setup wizard.
 
 ---
 

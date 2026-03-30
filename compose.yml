@@ -41,6 +41,7 @@ services:
       - ${OPENCLAW_WORKSPACE_DIR:-/var/lib/openclaw/chloe/workspace}:/home/node/.openclaw/workspace
       - ${OPENCLAW_STACK_DIR:-/opt/op-and-chloe}:/opt/op-and-chloe:ro
       - token-vending-sock:/var/run/token-vending:ro
+      - guard-control:/var/run/guard-control:ro
     init: true
     restart: unless-stopped
     command: ["node","dist/index.js","gateway","--bind","loopback","--port","18789","--allow-unconfigured"]
@@ -59,17 +60,17 @@ services:
       HOME: /home/node
       TERM: xterm-256color
       OPENCLAW_GATEWAY_TOKEN: ${OPENCLAW_GUARD_GATEWAY_TOKEN}
+      OPENCLAW_WORKER_GATEWAY_TOKEN: ${OPENCLAW_GATEWAY_TOKEN}
       NPM_CONFIG_PREFIX: /home/node/.openclaw/npm-global
       PNPM_HOME: /home/node/.local/share/pnpm
       PATH: /opt/op-and-chloe/scripts/guard:/opt/op-and-chloe/scripts:/home/node/.local/share/pnpm:/home/node/.openclaw/npm-global/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
     volumes:
       - ${OPENCLAW_GUARD_STATE_DIR:-/var/lib/openclaw/guard/state}:/home/node/.openclaw
       - ${OPENCLAW_GUARD_WORKSPACE_DIR:-/var/lib/openclaw/guard/workspace}:/home/node/.openclaw/workspace
-      - /var/lib/openclaw:/mnt/openclaw-data
-      - /etc/openclaw:/mnt/etc-openclaw
-      - /var/lib/openclaw/guard/state/ssh:/home/node/.ssh:ro
-      - ${OPENCLAW_STACK_DIR:-/opt/op-and-chloe}:/opt/op-and-chloe
-      - /var/run/docker.sock:/var/run/docker.sock
+      - ${OPENCLAW_STATE_DIR:-/var/lib/openclaw/chloe/state}:/mnt/chloe-state:ro
+      - ${OPENCLAW_WORKSPACE_DIR:-/var/lib/openclaw/chloe/workspace}:/mnt/chloe-workspace:ro
+      - ${OPENCLAW_STACK_DIR:-/opt/op-and-chloe}:/opt/op-and-chloe:ro
+      - guard-control:/var/run/guard-control
     init: true
     restart: unless-stopped
     command: ["node", "dist/index.js", "gateway", "--bind", "loopback", "--port", "18790", "--allow-unconfigured"]
@@ -104,4 +105,5 @@ networks:
     driver: bridge
 
 volumes:
+  guard-control:
   token-vending-sock:

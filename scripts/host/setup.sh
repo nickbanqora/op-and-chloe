@@ -83,7 +83,7 @@ step_status(){
     12) configured_label guard ;;
     13) configured_label worker ;;
     14) check_seed_done && echo "✅ Seeded" || echo "⚪ Not seeded" ;;
-    15) guard_admin_mode_enabled && echo "⚠️ Enabled (gives guard full VPS access — disable when not needed)" || echo "⚪ Disabled" ;;
+    15) guard_admin_mode_enabled && echo "⚠️ Enabled (emergency — Docker + SSH + host access)" || echo "⚪ Disabled (monitoring only)" ;;
     16) echo "" ;;
     17) echo "" ;;
     18) echo "" ;;
@@ -554,43 +554,50 @@ set_guard_admin_mode(){
   local c="$STACK_DIR/compose.yml"
   if [ "$mode" = "on" ]; then
     ensure_guard_ssh_to_host
+    # Add admin mounts if not present
     if ! grep -q '/var/lib/openclaw:/mnt/openclaw-data' "$c"; then
       sed -i '/OPENCLAW_GUARD_WORKSPACE_DIR.*workspace/a\
       - /var/lib/openclaw:/mnt/openclaw-data\
       - /etc/openclaw:/mnt/etc-openclaw\
       - /var/lib/openclaw/guard/state/ssh:/home/node/.ssh:ro' "$c"
-    elif ! grep -q '/var/lib/openclaw/guard/state/ssh:/home/node/.ssh' "$c"; then
-      sed -i '\# /etc/openclaw:/mnt/etc-openclaw#a\
-      - /var/lib/openclaw/guard/state/ssh:/home/node/.ssh:ro' "$c"
     fi
-    ok "Guard admin mode enabled (full host data/config mounted; Op can SSH to host as root@localhost)"
+    # Add Docker socket if not present
+    if ! grep -q '/var/run/docker.sock' "$c"; then
+      sed -i '/guard-control:\/var\/run\/guard-control/a\
+      - /var/run/docker.sock:/var/run/docker.sock' "$c"
+    fi
+    # Change stack repo mount from :ro to read-write
+    sed -i 's#\(op-and-chloe\):ro\(.*# guard\)#\1\2#' "$c" 2>/dev/null || true
+    ok "Guard admin mode enabled (Docker socket, host data/config, SSH)"
   else
     sed -i '\# /var/lib/openclaw:/mnt/openclaw-data#d' "$c"
     sed -i '\# /etc/openclaw:/mnt/etc-openclaw#d' "$c"
     sed -i '\# /var/lib/openclaw/guard/state/ssh:/home/node/.ssh#d' "$c"
-    ok "Guard admin mode disabled (minimal mounts; Op cannot SSH to host)"
+    sed -i '\# /var/run/docker.sock#d' "$c"
+    ok "Guard admin mode disabled (monitoring only — no Docker, no SSH, no host access)"
   fi
   cd "$STACK_DIR"
   docker compose --env-file "$ENV_FILE" -f compose.yml up -d --force-recreate openclaw-guard >/dev/null || true
 }
 
 step_guard_admin_mode(){
-  say "Guard admin mode"
-  say "When enabled: guard can access /var/lib/openclaw and /etc/openclaw, and Op can SSH back to this host (e.g. ssh root@localhost) for shell access."
+  say "Guard admin mode (emergency escalation)"
+  say "Default: Op is monitoring-only (reads Chloe's state, can pause/resume, no host access)."
+  say "Admin mode: adds Docker socket, SSH, and full host mounts. Use only for emergencies."
   if guard_admin_mode_enabled; then
-    warn "Admin mode is ON. Op has full access to this VPS (data, config, SSH). Enable only temporarily when absolutely necessary."
-    ok "Current: ENABLED"
+    warn "Admin mode is ON. Op has Docker socket, SSH, and full host access. Disable when done."
+    ok "Current: ENABLED (emergency)"
     read -r -p "$TIGER Disable admin mode now? [y/N]: " ans
     case "${ans:-n}" in
       y|Y) set_guard_admin_mode off ;;
       *) ok "No changes" ;;
     esac
   else
-    ok "Current: DISABLED"
+    ok "Current: DISABLED (monitoring only)"
     read -r -p "$TIGER Enable admin mode now? [y/N]: " ans
     case "${ans:-n}" in
       y|Y)
-        warn "Admin mode gives Op full access to this VPS. Enable only temporarily when absolutely necessary."
+        warn "This gives Op Docker socket, SSH, and full host access. Enable only temporarily."
         set_guard_admin_mode on
         ;;
       *) ok "No changes" ;;
