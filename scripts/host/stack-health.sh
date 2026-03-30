@@ -23,7 +23,7 @@ printf "== network/security checks ==\n"
 if tailscale status >/dev/null 2>&1; then
   echo "✅ Tailscale - Running"
 else
-  echo "⚠️  Tailscale - Not running"
+  echo "⚪ Tailscale - Not installed (optional)"
 fi
 
 echo

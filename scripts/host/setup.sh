@@ -38,7 +38,7 @@ welcome(){
   echo "┃   🖥️ Webtop browser (Chromium) for persistent logins        ┃"
   echo "┃   🐕 Op (guard) — admin with SSH access                    ┃"
   echo "┃   🐯 Chloe (worker) — day-to-day, create all agents here   ┃"
-  echo "┃   🔐 Tailscale for private network access                  ┃"
+  echo "┃   🔐 Tailscale for private network access (optional)        ┃"
   echo "┃   🔑 Bitwarden (passwordless: no secrets in files)         ┃"
   echo "┃   ❤️ Healthcheck + watchdog validation                      ┃"
   echo "┃   🎟️ Token vending (short-lived GitHub credentials)        ┃"
@@ -75,7 +75,7 @@ step_status(){
     4) [ -f "$ENV_FILE" ] && echo "✅ Created" || echo "⚪ Not created" ;;
     5) check_done browser_init && echo "✅ CDP scripts installed" || echo "⚪ Not installed" ;;
     6) check_done bitwarden && echo "✅ Configured" || echo "⚪ Not configured" ;;
-    7) if check_done tailscale; then tsip=$(tailscale_ip); echo "✅ Running${tsip:+ ($tsip)}"; else echo "⚪ Not running"; fi ;;
+    7) if tailscale_available; then tsip=$(tailscale_ip); echo "✅ Running${tsip:+ ($tsip)}"; elif tailscale_skipped; then echo "⚪ Skipped (optional)"; else echo "⚪ Not configured (optional)"; fi ;;
     8) container_running "$guard_name" && echo "✅ Currently running" || echo "⚪ Not running" ;;
     9) container_running "$worker_name" && echo "✅ Currently running" || echo "⚪ Not running" ;;
     10) container_running "$browser_name" && echo "✅ Currently running" || echo "⚪ Not running" ;;
@@ -119,6 +119,16 @@ configured_label(){
   else
     echo "⚪ Not configured"
   fi
+}
+
+TAILSCALE_SKIP_FILE="$STACK_DIR/.tailscale-skip"
+
+tailscale_skipped(){
+  [ -f "$TAILSCALE_SKIP_FILE" ]
+}
+
+tailscale_available(){
+  tailscale status >/dev/null 2>&1
 }
 
 tailscale_ip(){
@@ -213,6 +223,37 @@ PY2
 }
 
 apply_tailscale_bind(){ :; }
+
+# Set localhost allowedOrigins so Control UI works without Tailscale (e.g. AWS VPN, SSH tunnel).
+ensure_localhost_allowed_origins(){
+  local worker_state guard_state
+  if [ -f "$ENV_FILE" ]; then
+    worker_state=$(grep -E '^OPENCLAW_STATE_DIR=' "$ENV_FILE" 2>/dev/null | cut -d= -f2- | tr -d '"' | head -1)
+    guard_state=$(grep -E '^OPENCLAW_GUARD_STATE_DIR=' "$ENV_FILE" 2>/dev/null | cut -d= -f2- | tr -d '"' | head -1)
+  fi
+  worker_state="${worker_state:-/var/lib/openclaw/chloe/state}"
+  guard_state="${guard_state:-/var/lib/openclaw/guard/state}"
+  WORKER_CFG="${worker_state}/openclaw.json" GUARD_CFG="${guard_state}/openclaw.json" python3 - <<'PY2'
+import json, pathlib, os
+worker_cfg = pathlib.Path(os.environ.get("WORKER_CFG", "/var/lib/openclaw/chloe/state/openclaw.json"))
+guard_cfg = pathlib.Path(os.environ.get("GUARD_CFG", "/var/lib/openclaw/guard/state/openclaw.json"))
+worker_origins = ["http://127.0.0.1:18789", "http://localhost:18789"]
+guard_origins = ["http://127.0.0.1:18790", "http://localhost:18790"]
+for cfg, origins in [(worker_cfg, worker_origins), (guard_cfg, guard_origins)]:
+    d = {}
+    if cfg.exists() and cfg.stat().st_size > 0:
+        d = json.loads(cfg.read_text())
+    else:
+        cfg.parent.mkdir(parents=True, exist_ok=True)
+    g = d.setdefault("gateway", {})
+    g["trustedProxies"] = ["127.0.0.1", "::1", "172.31.0.1"]
+    cu = g.setdefault("controlUi", {})
+    cu["allowedOrigins"] = list(dict.fromkeys((cu.get("allowedOrigins") or []) + origins))
+    cfg.write_text(json.dumps(d, indent=2) + "\n")
+PY2
+  mkdir -p "$worker_state/devices" "$guard_state/devices"
+  chown -R 1000:1000 "$worker_state" "$guard_state" 2>/dev/null || true
+}
 
 
 ensure_inline_buttons(){
@@ -916,22 +957,36 @@ step_browser_init(){
 }
 
 step_tailscale(){
-  say "Step 7: Tailscale setup (opinionated default)"
-  say "We use Tailscale so you can access the dashboards privately over your tailnet, without exposing ports to the internet."
-  if check_done tailscale; then
+  say "Step 7: Tailscale setup (optional)"
+  say "Tailscale gives you private HTTPS access to dashboards over your tailnet."
+  say "Skip this if your network already provides private access (e.g. AWS VPN)."
+  if tailscale_available; then
     local tsip
     tsip=$(tailscale_ip)
     ok "Tailscale already running"
     ok "Tailnet IP: ${tsip}"
+    rm -f "$TAILSCALE_SKIP_FILE"
     apply_tailscale_serve && ok "Configured HTTPS Tailscale dashboard endpoints"
     enable_tokenless_tailscale_auth && ok "Applied Tailscale auth compatibility settings"
     ensure_control_ui_allowed_origins && ok "Control UI allowed origins set for Tailscale"
     return
   fi
-  read -r -p "$TIGER Install Tailscale now? [Y/n]: " ans
-  if [[ "$ans" =~ ^[Nn]$ ]]; then return; fi
+  if tailscale_skipped; then
+    say "Tailscale was previously skipped."
+  fi
+  echo "  1. Install Tailscale on this machine"
+  echo "  2. Skip — I don't need Tailscale (dashboards available on localhost)"
+  read -r -p "$TIGER Choice [1/2]: " ans
+  case "$ans" in
+    2)
+      touch "$TAILSCALE_SKIP_FILE"
+      ok "Tailscale skipped. Dashboards available at http://localhost:18789 (worker), :18790 (guard), :6080 (webtop)."
+      return
+      ;;
+  esac
   curl -fsSL https://tailscale.com/install.sh | sh >/dev/null
   ok "Tailscale installed"
+  rm -f "$TAILSCALE_SKIP_FILE"
   say "Log in to Tailscale to join this machine to your tailnet."
   say "Get an auth key from: https://login.tailscale.com/admin/settings/keys"
   read -r -p "$TIGER Paste auth key (or Enter to run 'tailscale up' interactively): " authkey
@@ -941,7 +996,7 @@ step_tailscale(){
     say "Running 'tailscale up' — follow the prompts (browser or URL) to authenticate."
     tailscale up || warn "Run 'tailscale up' manually when ready."
   fi
-  if check_done tailscale; then
+  if tailscale_available; then
     apply_tailscale_serve && ok "Configured HTTPS Tailscale dashboard endpoints"
     enable_tokenless_tailscale_auth && ok "Applied Tailscale auth compatibility settings"
     ensure_control_ui_allowed_origins && ok "Control UI allowed origins set for Tailscale"
@@ -953,6 +1008,7 @@ step_tailscale(){
 step_start_guard(){
   sync_core_workspaces
   ensure_stack_repo_alias
+  ensure_localhost_allowed_origins
   say "Start guard service"
   say "Op is the admin instance with SSH access — for fixing Chloe, restarts, and large architectural changes."
   if container_running "$guard_name"; then ok "Guard already running"; return; fi
@@ -966,6 +1022,7 @@ step_start_guard(){
 step_start_worker(){
   sync_core_workspaces
   ensure_worker_scripts
+  ensure_localhost_allowed_origins
   say "Start worker service"
   say "Chloe is the day-to-day instance — create all agents here; you'll chat with her daily."
   if container_running "$worker_name"; then ok "Worker already running"; return; fi
@@ -1184,7 +1241,7 @@ step_auth_tokens(){
       worker_token=$(grep -E '^OPENCLAW_GATEWAY_TOKEN=' "$ENV_FILE" 2>/dev/null | cut -d= -f2- | tr -d '"' | head -1)
       guard_token=$(grep -E '^OPENCLAW_GUARD_GATEWAY_TOKEN=' "$ENV_FILE" 2>/dev/null | cut -d= -f2- | tr -d '"' | head -1)
     fi
-    if check_done tailscale; then
+    if tailscale_available; then
       TSDNS=$(tailscale_dns)
       TSDNS=${TSDNS:-unavailable}
       ensure_control_ui_allowed_origins "$TSDNS"
@@ -1206,9 +1263,18 @@ step_auth_tokens(){
       fi
       echo "  Webtop: https://${TSDNS}:445/"
     else
-      echo "Dashboards: not available yet — run option 6 (Tailscale setup)."
-      [ -n "$guard_token" ] && echo "  Guard token:  $guard_token"
-      [ -n "$worker_token" ] && echo "  Worker token: $worker_token"
+      echo "Dashboards (localhost):"
+      if [ -n "$guard_token" ]; then
+        echo "  Guard:  http://localhost:18790/#token=${guard_token}"
+      else
+        echo "  Guard:  http://localhost:18790/  (no token in env — run step 3 or rotate)"
+      fi
+      if [ -n "$worker_token" ]; then
+        echo "  Worker: http://localhost:18789/#token=${worker_token}"
+      else
+        echo "  Worker: http://localhost:18789/  (no token in env — run step 3 or rotate)"
+      fi
+      echo "  Webtop: http://localhost:6080/"
     fi
     echo
     # Fetch devices list for pairing status and pending (use resolved names for Compose-prefixed containers)
@@ -1347,7 +1413,7 @@ step_auth_tokens(){
           echo
           worker_token=$(grep -E '^OPENCLAW_GATEWAY_TOKEN=' "$ENV_FILE" 2>/dev/null | cut -d= -f2- | tr -d '"' | head -1)
           guard_token=$(grep -E '^OPENCLAW_GUARD_GATEWAY_TOKEN=' "$ENV_FILE" 2>/dev/null | cut -d= -f2- | tr -d '"' | head -1)
-          if check_done tailscale; then
+          if tailscale_available; then
             TSDNS=$(tailscale_dns)
             TSDNS=${TSDNS:-unavailable}
             echo "Dashboards (Tailscale HTTPS):"
@@ -1355,8 +1421,10 @@ step_auth_tokens(){
             [ -n "$worker_token" ] && echo "  Worker: https://${TSDNS}/#token=${worker_token}" || echo "  Worker: https://${TSDNS}/  (no token in env)"
             echo "  Webtop: https://${TSDNS}:445/"
           else
-            [ -n "$guard_token" ] && echo "  Guard token:  $guard_token"
-            [ -n "$worker_token" ] && echo "  Worker token: $worker_token"
+            echo "Dashboards (localhost):"
+            [ -n "$guard_token" ] && echo "  Guard:  http://localhost:18790/#token=${guard_token}" || echo "  Guard:  http://localhost:18790/"
+            [ -n "$worker_token" ] && echo "  Worker: http://localhost:18789/#token=${worker_token}" || echo "  Worker: http://localhost:18789/"
+            echo "  Webtop: http://localhost:6080/"
           fi
           echo
         else
@@ -1446,7 +1514,7 @@ menu_once(){
   printf "  %2d. %-24s | %s\n"  4 "environment"        "$(step_status 4)"
   printf "  %2d. %-24s | %s\n"  5 "browser init"       "$(step_status 5)"
   printf "  %2d. %-24s | %s\n"  6 "bitwarden"          "$(step_status 6)"
-  printf "  %2d. %-24s | %s\n"  7 "tailscale"          "$(step_status 7)"
+  printf "  %2d. %-24s | %s\n"  7 "tailscale (optional)"  "$(step_status 7)"
   printf "  %2d. %-24s | %s\n"  8 "start guard"        "$(step_status 8)"
   printf "  %2d. %-24s | %s\n"  9 "start worker"       "$(step_status 9)"
   printf "  %2d. %-24s | %s\n" 10 "start browser"      "$(step_status 10)"
@@ -1460,15 +1528,21 @@ menu_once(){
   printf "  %2d. %-24s | %s\n" 18 "restart all services" "$(step_status 18)"
   printf "  %2d. %-24s | %s\n" 19 "token vending"        "$(step_status 19)"
   echo
-  if check_done tailscale; then
+  if tailscale_available; then
     menu_tsdns=$(tailscale_dns)
     if [ -n "$menu_tsdns" ]; then
-      echo "Dashboards:"
+      echo "Dashboards (Tailscale HTTPS):"
       echo "  🐕 Guard:  https://${menu_tsdns}:444/"
       echo "  🐯 Worker: https://${menu_tsdns}/"
       echo "  🖥️  Webtop: https://${menu_tsdns}:445/"
       echo
     fi
+  else
+    echo "Dashboards (localhost):"
+    echo "  🐕 Guard:  http://localhost:18790/"
+    echo "  🐯 Worker: http://localhost:18789/"
+    echo "  🖥️  Webtop: http://localhost:6080/"
+    echo
   fi
   read -r -p "$TIGER Select step [1-19] or 0 to exit: " pick
   case "$pick" in

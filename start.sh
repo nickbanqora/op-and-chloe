@@ -53,7 +53,7 @@ for i in $(seq 1 "$max"); do
     echo "[start] gateways ready after ${i}s"
     break
   fi
-  [ "$i" -eq "$max" ] && { echo "[start] WARN: gateways not ready after ${max}s; Tailscale serve may 502 until they are up"; break; }
+  [ "$i" -eq "$max" ] && { echo "[start] WARN: gateways not ready after ${max}s"; break; }
   sleep 1
 done
 

@@ -39,7 +39,7 @@ It looks like this:
 
 - **📱 Two Telegram chats.** One for Op (admin, fixing Chloe, restarts); one for Chloe (day-to-day — create all agents here).
 
-- **🔒 Private access via Tailscale.** Guard, worker, and Webtop are on your Tailscale network with optional HTTPS - no public ports. Use them from your phone or laptop.
+- **🔒 Private access via Tailscale (optional).** Guard, worker, and Webtop can be accessed over your Tailscale network with HTTPS. Skip this if your network already provides private access (e.g. AWS VPN). Without Tailscale, dashboards are available on localhost.
 
 - **❤️ Health Check.** Scripts to configure, verify and keep your stack healthy.
 
