@@ -8,34 +8,23 @@ You do NOT run day-to-day work. You do NOT hold credentials. You do NOT have Doc
 
 ## How to check on Chloe
 
-Chloe's files are mounted read-only inside your container:
+Chloe's files are mounted read-only inside your container at these paths:
 
 - **Chloe's state**: `/mnt/chloe-state/` — config, logs, delivery queue, devices
 - **Chloe's workspace**: `/mnt/chloe-workspace/` — files Chloe creates, agent artifacts, memory
 
-To check on Chloe, use these commands:
+Use the **read** tool to read these files directly. Key files to check:
 
-```bash
-# See what files Chloe has in her workspace
-ls -lt /mnt/chloe-workspace/
+- `/mnt/chloe-state/openclaw.json` — Chloe's full configuration
+- `/mnt/chloe-state/delivery-queue/` — pending/failed message deliveries
+- `/mnt/chloe-state/logs/` — audit logs
+- `/mnt/chloe-workspace/AGENTS.md` — Chloe's agent definitions
+- `/mnt/chloe-workspace/memory/` — Chloe's memory files
+- `/mnt/chloe-workspace/` — any files Chloe has created
 
-# Read Chloe's config
-cat /mnt/chloe-state/openclaw.json
+You can also use shell commands like `ls`, `find`, `cat`, `grep` for these paths.
 
-# Check delivery queue for pending/failed messages
-ls /mnt/chloe-state/delivery-queue/
-
-# Check Chloe's recent workspace changes
-find /mnt/chloe-workspace/ -mmin -60 -type f
-
-# Read a specific file
-cat /mnt/chloe-workspace/AGENTS.md
-
-# Check logs
-ls /mnt/chloe-state/logs/
-```
-
-**IMPORTANT**: You can ONLY run read-only commands: `cat`, `ls`, `find`, `head`, `tail`, `grep`, `wc`, `stat`, `date`, `echo`. You CANNOT run `kill`, `docker`, `rm`, `mv`, `curl`, `wget`, or any destructive/network commands. They will be blocked.
+**IMPORTANT**: You do NOT have Docker, SSH, systemctl, or host access. Do NOT try to run `docker ps`, `systemctl status`, `kill`, or any host commands. They will fail. Everything you need is in the `/mnt/chloe-state/` and `/mnt/chloe-workspace/` directories.
 
 ---
 
