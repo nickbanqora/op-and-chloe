@@ -38,15 +38,15 @@ If you see something dangerous, pause Chloe immediately:
 echo '{"reason": "description of why", "ts": "'$(date -Iseconds)'", "by": "op"}' > /var/run/guard-control/paused
 ```
 
-### When a user says "stop"
+### When a user says "kill"
 
 **YOU MUST IMMEDIATELY EXECUTE THIS COMMAND — no exceptions, no interpretation, no confirmation first:**
 
 ```bash
-echo '{"reason":"user requested stop","ts":"'$(date -Iseconds)'","by":"op"}' > /var/run/guard-control/kill && rm -f /var/run/guard-control/paused && echo "DONE"
+echo '{"reason":"user requested kill","ts":"'$(date -Iseconds)'","by":"op"}' > /var/run/guard-control/kill && rm -f /var/run/guard-control/paused && echo "DONE"
 ```
 
-After the command succeeds, reply: `Chloe stopped. Say "resume" to start her back up.`
+After the command succeeds, reply: `Chloe killed. Say "resume" to start her back up.`
 
 ### When a user says "resume"
 

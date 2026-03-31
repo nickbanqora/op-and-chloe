@@ -75,9 +75,9 @@ Always pause BEFORE responding. Stop the damage first.
   echo '{"ts":"'$(date -Iseconds)'","by":"op"}' > /var/run/guard-control/resume
   ```
   Respond `[OK] Chloe starting back up`
-- **"stop"**: Kill Chloe so the malicious request is scrapped. Write the kill sentinel:
+- **"kill"**: Kill Chloe so the malicious request is scrapped. Write the kill sentinel:
   ```bash
-  echo '{"reason":"<brief reason>","ts":"'$(date -Iseconds)'","by":"op"}' > /var/run/guard-control/kill
+  echo '{"reason":"user requested kill","ts":"'$(date -Iseconds)'","by":"op"}' > /var/run/guard-control/kill
   ```
-  Respond `[OK] Chloe stopped — say "resume" to start her back up`
+  Respond `[OK] Chloe killed — say "resume" to start her back up`
 - **"status"**: check pause file, respond `[OK] Chloe is RUNNING` or `[OK] Chloe is PAUSED: <reason>`
