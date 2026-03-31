@@ -9,20 +9,25 @@ export const description = "Notion OAuth2 access tokens via public integration (
  * Expects config.yaml to have a `notion` section with client_id,
  * client_secret_file, and refresh_token_file.
  */
-export function check(config, secretsDir) {
+export function check(config, secretsDir, refreshDir) {
   const n = config?.notion;
   if (!n) return null;
   if (!n.client_id || !n.client_secret_file || !n.refresh_token_file) return null;
 
   const secretPath = path.join(secretsDir, n.client_secret_file);
-  const refreshPath = path.join(secretsDir, n.refresh_token_file);
+
+  // Read refresh token from writable refreshDir first, fall back to secretsDir for initial seed
+  const refreshWritePath = path.join(refreshDir, n.refresh_token_file);
+  const refreshSeedPath = path.join(secretsDir, n.refresh_token_file);
+
   if (!fs.existsSync(secretPath)) return null;
-  if (!fs.existsSync(refreshPath)) return null;
+  if (!fs.existsSync(refreshWritePath) && !fs.existsSync(refreshSeedPath)) return null;
 
   return {
     clientId: n.client_id,
     secretPath,
-    refreshPath,
+    refreshWritePath,
+    refreshSeedPath,
   };
 }
 
@@ -31,17 +36,28 @@ export function check(config, secretsDir) {
  */
 export async function init(providerConfig) {
   const clientSecret = fs.readFileSync(providerConfig.secretPath, "utf-8").trim();
-  const refreshToken = fs.readFileSync(providerConfig.refreshPath, "utf-8").trim();
+
+  // Read from writable path first, fall back to seed in secrets dir
+  let refreshToken;
+  if (fs.existsSync(providerConfig.refreshWritePath)) {
+    refreshToken = fs.readFileSync(providerConfig.refreshWritePath, "utf-8").trim();
+  } else {
+    refreshToken = fs.readFileSync(providerConfig.refreshSeedPath, "utf-8").trim();
+  }
 
   if (!refreshToken) {
     throw new Error("Refresh token file is empty — complete the OAuth flow first");
   }
 
+  // Ensure refresh dir exists
+  const refreshDir = path.dirname(providerConfig.refreshWritePath);
+  fs.mkdirSync(refreshDir, { recursive: true });
+
   return {
     clientId: providerConfig.clientId,
     clientSecret,
     refreshToken,
-    refreshPath: providerConfig.refreshPath,
+    refreshWritePath: providerConfig.refreshWritePath,
   };
 }
 
@@ -49,7 +65,7 @@ let cachedToken = null;
 
 /**
  * Vend a short-lived access token.
- * Refreshes the token pair and persists the new refresh token.
+ * Refreshes the token pair and persists the new refresh token to the writable dir.
  */
 export async function vend(state) {
   // Return cached token if still valid (5 min buffer)
@@ -85,10 +101,10 @@ export async function vend(state) {
 
   const result = await res.json();
 
-  // Notion rotates the refresh token on every use — persist the new one
+  // Notion rotates the refresh token on every use — persist to writable dir
   if (result.refresh_token) {
     state.refreshToken = result.refresh_token;
-    fs.writeFileSync(state.refreshPath, result.refresh_token, "utf-8");
+    fs.writeFileSync(state.refreshWritePath, result.refresh_token, "utf-8");
   }
 
   const expiresAt = Date.now() + (result.expires_in || 3600) * 1000;

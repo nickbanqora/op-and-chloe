@@ -6,6 +6,7 @@ import { parseConfig } from "./config.js";
 
 const SOCKET_PATH = process.env.SOCKET_PATH || "/var/run/token-vending/vending.sock";
 const SECRETS_DIR = process.env.SECRETS_DIR || "/etc/token-vending";
+const REFRESH_DIR = process.env.REFRESH_DIR || "/var/lib/token-vending/refresh";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -63,7 +64,7 @@ async function discoverProviders(config) {
       continue;
     }
 
-    const providerConfig = mod.check(config, SECRETS_DIR);
+    const providerConfig = mod.check(config, SECRETS_DIR, REFRESH_DIR);
     if (!providerConfig) {
       console.log(`Provider ${mod.name}: not configured, skipping`);
       continue;

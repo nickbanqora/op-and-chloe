@@ -95,9 +95,11 @@ services:
     environment:
       SOCKET_PATH: /var/run/token-vending/vending.sock
       SECRETS_DIR: /etc/token-vending
+      REFRESH_DIR: /var/lib/token-vending/refresh
     volumes:
       - token-vending-sock:/var/run/token-vending
-      - ${TOKEN_VENDING_SECRETS_DIR:-/etc/token-vending}:/etc/token-vending
+      - ${TOKEN_VENDING_SECRETS_DIR:-/etc/token-vending}:/etc/token-vending:ro
+      - token-vending-refresh:/var/lib/token-vending/refresh
     init: true
     restart: unless-stopped
 
@@ -118,3 +120,4 @@ networks:
 volumes:
   guard-control:
   token-vending-sock:
+  token-vending-refresh:
