@@ -4,253 +4,178 @@
   <img src="assets/logo.png" alt="Op and Chloe" width="400">
 </p>
 
-`op-and-chloe` ("openclaw-ey") is a two-instance OpenClaw stack for any VPS.
+`op-and-chloe` ("openclaw-ey") is a two-instance OpenClaw stack for any VPS or cloud instance.
 
-- **🐕 Op**: monitoring/oversight instance — watches Chloe, alerts on suspicious activity, can pause her
+- **🐕 Op**: monitoring/oversight instance — watches Chloe in real-time, alerts on suspicious activity, can pause her
 - **🐯 Chloe**: day-to-day instance — create all agents here; has Bitwarden, email, M365, webtop
-- 🖥️ Webtop Chromium + CDP for shared browser (you + Chloe)
-- 🔐 Passwordless: Bitwarden in Chloe; login/unlock interactive only, no secrets in files
-- ❤️ Healthcheck + watchdog
+- **🖥️ Webtop**: Chromium + CDP for shared browser (you + Chloe)
+- **🔐 Passwordless**: Bitwarden in Chloe; login/unlock interactive only, no secrets in files
+- **🎟️ Token vending**: short-lived credentials for GitHub, Google, Notion, Slack — secrets never reach Chloe
+- **❤️ Healthcheck + watchdog**
 
-> 🚀 Easiest setup ever: just run `sudo ./setup.sh` and you’re on your way! 🎉
-
-## But why?
-
-Why do you need this?  
-Why not just use OpenClaw as it is?  
-
-You can - and you should. OpenClaw is awesome.
-
-Setting it up from start to finish can be very tedious, though. How do you securely share credentials? How do you give OpenClaw browser access - especially on a headless server? Should you use Browserless or run headless Chromium? If you can't see the browser, how do you log in? How do you troubleshoot or fix things from your phone? And how do you help someone set up OpenClaw if they're not comfortable with SSH or the command line?
-
-I created `op-and-chloe` to make this process easier.  
-It's not a framework, not a lock-in, **it's a simple wizard** to pre-configure your stack to get you started. **Once up and running, you can change it completely**.
-
-It looks like this:
-
-<p align="center">
-  <img src="assets/wizard.png" alt="OpenClaw Setup Wizard" width="600">
-</p>
-
-
-**What you get out of the box:**
-
-- **☁️ A working stack on any VPS.** I use [Hetzner](https://www.hetzner.com), it's **~$4.70/month** and runs the full stack really well - but you can use any VPS provider. See [HETZNER.md](./HETZNER.md).
-
-- **📱 Two Telegram chats.** One for Op (admin, fixing Chloe, restarts); one for Chloe (day-to-day — create all agents here).
-
-- **🔒 Private access via Tailscale (optional).** Guard, worker, and Webtop can be accessed over your Tailscale network with HTTPS. Skip this if your network already provides private access (e.g. AWS VPN). Without Tailscale, dashboards are available on localhost.
-
-- **❤️ Health Check.** Scripts to configure, verify and keep your stack healthy.
-
-- **🔑 Passwordless credentials** Bitwarden runs in Chloe’s container. Login and unlock are interactive only; no secrets stored in files.
-
+> 🚀 Just run `sudo ./setup.sh` and follow the wizard! 🎉
 
 ---
 
-
 ## Quick start
 
-After purchasing your VPS from a provider, SSH into your server and follow the setup wizard step-by-step. No advanced technical skills required - just run each guided step **in order**. The wizard makes it easy: after each action, you’ll return to the menu so you can check your progress before moving on.
+SSH into your server and follow the setup wizard step-by-step.
 
 ```bash
-git clone https://github.com/mere/op-and-chloe.git
+git clone https://github.com/nickbanqora/op-and-chloe.git
 cd op-and-chloe
 sudo ./setup.sh
 ```
 
-That's it!
-<p align="center">
-  <img src="assets/highfive.png" alt="OpenClaw Setup Wizard" height="300">
-</p>
-It takes about 20 minutes to follow the steps and your `AI personal assistant` is ready! ✨
-
 ## How to update
 
-To update your op-and-chloe stack: run `git pull`, then run the setup again. The wizard will show you if anything needs updating.
-
 ```bash
-cd op-and-chloe   # or wherever you cloned the repo
+cd op-and-chloe
 git pull
-sudo ./setup.sh
-```
-
-# Components
-
-The stack consists of:
-- **Three Docker containers:**
-  - **🐕 Op**: monitoring/oversight instance. Watches Chloe's activity, alerts on suspicious behavior, can pause her. Optional admin mode for emergencies.
-  - **🐯 Chloe**: day-to-day instance. Create all agents here. Has Bitwarden, email (Himalaya, M365), and webtop.
-  - **🖥️ Webtop**: shared browser for you and Chloe (co-working, automation).
-
----
-
-<p align="center">
-  <img src="assets/chloe.png" alt="OpenClaw Setup Wizard" height="200">
-</p>
-
-### 1. Chloe
-
-**Chloe** *(claw-y)* is your first OpenClaw instance.  
-(You can name her/him/they/it anything; it will ask for a name once it's up and running. 😊)
-
-This is your day-to-day instance. Create all agents here. You get Bitwarden, email (Himalaya, M365), and webtop — standard OpenClaw; add skills and agents as you like.
-
-When things break or you need restarts or big changes, talk to Op (admin with SSH access). Talk to Chloe for daily work.
-
----
-<p align="center">
-  <img src="assets/op.png" alt="OpenClaw Setup Wizard" height="200">
-</p>
-
-### 2. Op
-
-**Op** is the monitoring and oversight instance. Op’s job is to:
-- watch what Chloe is doing (read-only access to her state and workspace),
-- alert you via Slack/Telegram if something looks suspicious,
-- pause Chloe immediately if needed, and wait for your approval before resuming.
-
-You talk to Chloe for day-to-day work (create all agents there). Op watches in the background and contacts you if something is wrong. For admin tasks (restarts, deploys), SSH to the host directly. Admin mode is available as an emergency escalation in the setup wizard.
-
----
-
-<p align="center">
-  <img src="assets/browser.png" alt="OpenClaw Setup Wizard" height="200">
-</p>
-
-### 3. Browser access
-
-On a Mac mini, you can easily give OpenClaw access to a browser. On a headless VPS that's harder: headless browsers or services like Browserless can be detected by some sites, and you can't easily *see* what the agent is doing. Ideally you want to **co-work**: you log in to LinkedIn, ask the agent to check messages and draft replies; the agent fills a form, you review and submit.
-
-op-and-chloe gives you that: a small Docker image with a browser that both you and Chloe share. You log in once; Chloe uses the same session.
-
----
-<p align="center">
-  <img src="assets/bitwarden.png" alt="OpenClaw Setup Wizard" height="200">
-</p>
-
-### 4. Credentials
-
-All secrets, tokens, and passwords are stored securely in Bitwarden — never on the server itself. During setup, you'll connect your Bitwarden vault to Chloe (worker) and unlock it interactively when needed; only the vault URL and session key are stored in worker state. Chloe uses the **`bw`** script to read from the vault for email setup, O365 config, and other tools. 
-
-
----
-<p align="center">
-  <img src="assets/cli.png" alt="OpenClaw Setup Wizard" height="200">
-</p>
-
-## CLI Commands
-
-Run the setup wizard:
-```bash
-sudo ./setup.sh
-```
-
-Is your AI about to take over the world? Stop the containers with:
-```bash
-sudo ./stop.sh
-```
-
-False alarm, it was just ordering cat food? Start it with:  
-> Note: This also rebuilds the containers, so it's a good way to reset if things go wrong!
-```bash
 sudo ./start.sh
 ```
 
+---
 
-Run full health check on the stack:
-```bash
-sudo ./healthcheck.sh
-```
+# Components
 
-To run any `openclaw` command, use:
-```bash
-./openclaw-guard some command
-# or
-./openclaw-worker some command
-```
+The stack consists of four containers on isolated Docker networks:
 
+### 1. Chloe (Worker)
 
-## System diagram
+**Chloe** is your day-to-day instance. Create all agents here. She has Bitwarden, email (Himalaya, M365), and shared browser access via webtop.
+
+Chloe requests short-lived credentials from the token-vending service via a Unix socket — she never sees the underlying private keys or client secrets.
+
+### 2. Op (Guard)
+
+**Op** is the monitoring and oversight instance. Op's job is to:
+- watch Chloe's activity in real-time via a session watcher
+- alert you via Slack/Telegram if something looks suspicious
+- pause Chloe immediately if needed (SIGSTOP via sentinel file)
+- wait for your approval before resuming
+
+Op has **read-only** access to Chloe's state and workspace. No Docker socket, no SSH, no host access. For admin tasks (restarts, deploys), SSH to the host directly.
+
+**Admin mode** is available as an emergency escalation in the setup wizard (step 15) — it temporarily grants Op Docker socket and SSH access. Disable when done.
+
+### 3. Browser (Webtop)
+
+A shared Chromium browser that both you and Chloe use. You log in to sites once; Chloe uses the same session via CDP. Useful for co-working: Chloe drafts a LinkedIn reply, you review and send.
+
+### 4. Token Vending
+
+A credential broker that holds long-lived secrets (GitHub App keys, Google service accounts, Notion OAuth) and vends short-lived tokens to Chloe via a Unix socket. Secrets are mounted read-only; refresh tokens (e.g. Notion) are written to a separate writable volume.
+
+Configured providers: GitHub, Google, Notion, Slack, Keychain (static secrets).
+
+---
+
+## Architecture
 
 ```mermaid
 flowchart LR
   U[User]
   BW[(Bitwarden)]
-  subgraph VPS["VPS"]
- 
-    subgraph Chloe["OpenClaw Docker"]
-      A[Agents 🤖 🤖 🤖]
+  subgraph VPS["VPS / EC2"]
+
+    subgraph Chloe["Chloe (Worker)"]
+      A[Agents]
     end
-    subgraph OPD["OpenClaw Docker"]
-      Op["🐕 Op (Admin)"]
+    subgraph OpD["Op (Guard)"]
+      Op["Oversight\nMonitor + Alert\nPause/Resume"]
     end
-    
-    subgraph Docker[Webtop Docker]
-      B["🖥️  Webtop"]
+    subgraph Browser["Webtop"]
+      B["Chromium + CDP"]
     end
-    D[Docker / Host / Repo access]
+    subgraph TV["Token Vending"]
+      T["Short-lived tokens"]
+    end
   end
 
   U --> Chloe
-  Op --> D
+  U --> Op
+  Op -.->|reads state| Chloe
+  Op -.->|pause/resume| Chloe
   A --> B
   A --> BW
-  A --> E[💌 Email<br />📆 Calendar]
-  U --> Op
-  B --> S[🔷 Linkedin<br /> 💎 Social Media]
-  
+  A -->|socket| T
+  A --> E["Email / Calendar"]
+  B --> S["LinkedIn / Social"]
 ```
 
-## Architecture
+## Network isolation
 
-See the **System diagram** and **Components** section above for topology and roles.
+Each container runs on its own Docker network with minimal connectivity:
 
+| Container | Networks | Can reach |
+|---|---|---|
+| Chloe | `openclaw_net`, `control_net` | Browser (CDP), Token vending (socket), Op (control net) |
+| Op | `control_net` | Chloe state (read-only mount), guard-control volume |
+| Browser | `openclaw_net` | Internet (for web browsing) |
+| Token vending | `token_vending_egress` | Internet (for token exchange APIs) |
 
-## Bitwarden in Chloe
-
-Chloe has **Bitwarden** in her container. She uses **`bw`** (e.g. `bw list items`, `bw get item <id>`) to read from the vault; session lives in worker state. One-time setup: scripts/worker/email-setup.py, scripts/worker/fetch-o365-config.py.
-
-```bash
-# In Chloe: Bitwarden runs locally
-bw list items
-bw get item <id>
-
-# Email and M365 (after one-time setup)
-himalaya envelope list -a icloud -s 20 -o json
-m365 mail list --top 20
-```
-
-## Docs
-
-- **OpenClaw Web (Control UI, bind modes, Tailscale):** [https://docs.openclaw.ai/web](https://docs.openclaw.ai/web)
-
-## Troubleshooting
-
-**`./openclaw-guard devices list` (or worker) shows "device token mismatch":**
-- The container was started with an old gateway token. Recreate so they pick up the current env file: `sudo ./stop.sh && sudo ./start.sh` (wait ~90s for gateways to be ready, then try again).
-
-**Dashboard URLs (Guard/Worker) return HTTP 502 after `stop.sh` / `start.sh`:**
-- The gateways can take 60–90 seconds to start listening. `start.sh` now waits for them before applying Tailscale serve. If you still see 502, wait a minute and refresh, or re-run: `sudo ./scripts/host/apply-tailscale-serve.sh`
-
-**Chloe's browser tool shows wrong URL or cdpReady: false:**
-- The worker state must point at the browser container's CDP endpoint. On every `start.sh` we refresh it automatically. To fix immediately: `sudo ./scripts/host/update-webtop-cdp-url.sh` (then use the worker dashboard or reconnect so Chloe picks up the new config).
-
-**Webtop URL (https://hostname:445/) not working:**
-1. Ensure the browser container is running: `docker ps | grep browser`
-2. Ensure Tailscale serve is configured: `tailscale serve status`  -  you should see port 445 → 127.0.0.1:6080
-3. Re-apply serve config: `sudo ./scripts/host/apply-tailscale-serve.sh`
-4. For HTTPS to work, enable [HTTPS certificates](https://tailscale.com/kb/1153/enabling-https) in the admin console and run `sudo tailscale cert` on the VPS
+All gateway ports (18789, 18790, 6080) are bound to `127.0.0.1` — not accessible from the network. Access via SSH tunnel or Tailscale (optional).
 
 ## Security model
 
-- **No master password on disk:** In setup step 6 you log in and unlock once; only `BW_SERVER` and the session key are saved (worker state: `state/secrets/bitwarden.env`, `state/secrets/bw-session`). Chloe uses that session via **`bw`**; re-run step 6 if the vault is locked.
-- Bitwarden runs in Chloe’s container; she has `bw` in PATH.
+- **Op is monitoring-only** by default: read-only mounts, no Docker socket, no SSH. Can pause Chloe via sentinel file.
+- **Token vending secrets are read-only**: private keys and client secrets mounted `:ro`. Only refresh tokens (Notion) get a separate writable volume.
+- **No master password on disk**: Bitwarden vault unlocked interactively; only session key persisted.
+- **Peer credential logging**: token-vending logs UID/GID/PID of every request.
+- **Tailscale is optional**: skip if your network already provides private access (e.g. AWS VPN).
+- **Admin mode is emergency-only**: step 15 in wizard, adds Docker socket + SSH temporarily.
+
+## Bitwarden in Chloe
+
+Chloe has **Bitwarden** in her container. She uses **`bw`** to read from the vault; session lives in worker state.
+
+```bash
+bw list items
+bw get item <id>
+```
+
+## Token vending
+
+Chloe requests short-lived tokens via Unix socket:
+
+```bash
+curl -s --unix-socket /var/run/token-vending/vending.sock http://localhost/token/github
+curl -s --unix-socket /var/run/token-vending/vending.sock http://localhost/health
+```
+
+Configure providers in `/etc/token-vending/config.yaml`. See `token-vending/README.md`.
+
+## CLI Commands
+
+```bash
+sudo ./setup.sh          # Run setup wizard
+sudo ./start.sh           # Build and start all services
+sudo ./stop.sh            # Stop all services
+sudo ./healthcheck.sh     # Full health check
+
+./openclaw-guard <cmd>    # Run OpenClaw CLI for Op
+./openclaw-worker <cmd>   # Run OpenClaw CLI for Chloe
+```
+
+## Troubleshooting
+
+**Gateway "device token mismatch":**
+Recreate containers to pick up current tokens: `sudo ./stop.sh && sudo ./start.sh`
+
+**Dashboard URLs return HTTP 502:**
+Gateways take 60-90s to start. Wait and refresh, or check `sudo docker logs <container>`.
+
+**Chloe's browser tool shows cdpReady: false:**
+Run `sudo ./scripts/host/update-webtop-cdp-url.sh` to refresh the CDP URL in worker state.
+
+**Op not responding in Slack:**
+Check `sudo docker logs op-and-chloe-openclaw-guard` for errors. Common issues: exec approval gates, model API key not in `auth-profiles.json`.
+
+## Docs
+
+- **OpenClaw**: [https://docs.openclaw.ai](https://docs.openclaw.ai)
 
 ## License
 
 This project is licensed under the [MIT License](LICENSE).
-
-## Contributing
-
-Contributions are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for how to get started.
