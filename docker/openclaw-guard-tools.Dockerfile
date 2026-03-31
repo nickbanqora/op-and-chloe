@@ -10,7 +10,7 @@ ARG TARGETARCH
 
 # Core CLI dependencies. Bitwarden runs in the worker only; guard has no BW or bridge.
 RUN apt-get update \
- && apt-get install -y --no-install-recommends ca-certificates curl jq git \
+ && apt-get install -y --no-install-recommends ca-certificates curl jq git socat \
  && rm -rf /var/lib/apt/lists/*
 
 # Guard-control volume mount point (owned by node so Op can write pause/resume signals)

@@ -28,7 +28,11 @@ services:
         OPENCLAW_BASE_IMAGE: ${OPENCLAW_IMAGE:-ghcr.io/openclaw/openclaw:main}
     container_name: ${INSTANCE:-op-and-chloe}-openclaw-gateway
     entrypoint: ["/bin/bash", "/opt/op-and-chloe/scripts/worker/entrypoint.sh"]
-    network_mode: host
+    networks:
+      openclaw_net:
+      control_net:
+    ports:
+      - "${GATEWAY_HOST:-127.0.0.1}:${GATEWAY_PORT:-18789}:18789"
     environment:
       HOME: /home/node
       TERM: xterm-256color
@@ -44,7 +48,7 @@ services:
       - guard-control:/var/run/guard-control:ro
     init: true
     restart: unless-stopped
-    command: ["node","dist/index.js","gateway","--bind","loopback","--port","18789","--allow-unconfigured"]
+    command: ["node","dist/index.js","gateway","--bind","0.0.0.0","--port","18789","--allow-unconfigured"]
 
   openclaw-guard:
     image: ${OPENCLAW_GUARD_IMAGE:-openclaw-guard-tools:local}
@@ -55,12 +59,16 @@ services:
         OPENCLAW_BASE_IMAGE: ${OPENCLAW_IMAGE:-ghcr.io/openclaw/openclaw:main}
     container_name: ${INSTANCE:-op-and-chloe}-openclaw-guard
     entrypoint: ["/bin/bash", "/opt/op-and-chloe/scripts/guard/entrypoint.sh"]
-    network_mode: host
+    networks:
+      control_net:
+    ports:
+      - "${GUARD_GATEWAY_HOST:-127.0.0.1}:${GUARD_GATEWAY_PORT:-18790}:18790"
     environment:
       HOME: /home/node
       TERM: xterm-256color
       OPENCLAW_GATEWAY_TOKEN: ${OPENCLAW_GUARD_GATEWAY_TOKEN}
       OPENCLAW_WORKER_GATEWAY_TOKEN: ${OPENCLAW_GATEWAY_TOKEN}
+      WORKER_CONTAINER: ${INSTANCE:-op-and-chloe}-openclaw-gateway
       NPM_CONFIG_PREFIX: /home/node/.openclaw/npm-global
       PNPM_HOME: /home/node/.local/share/pnpm
       PATH: /opt/op-and-chloe/scripts/guard:/opt/op-and-chloe/scripts:/home/node/.local/share/pnpm:/home/node/.openclaw/npm-global/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
@@ -73,7 +81,7 @@ services:
       - guard-control:/var/run/guard-control
     init: true
     restart: unless-stopped
-    command: ["node", "dist/index.js", "gateway", "--bind", "loopback", "--port", "18790", "--allow-unconfigured"]
+    command: ["node", "dist/index.js", "gateway", "--bind", "0.0.0.0", "--port", "18790", "--allow-unconfigured"]
 
   token-vending:
     profiles: ["token-vending"]
@@ -100,6 +108,9 @@ networks:
     ipam:
       config:
         - subnet: ${DOCKER_SUBNET:-172.31.0.0/24}
+  control_net:
+    name: ${INSTANCE:-op-and-chloe}-control
+    driver: bridge
   token_vending_egress:
     name: ${INSTANCE:-op-and-chloe}-tv-egress
     driver: bridge
