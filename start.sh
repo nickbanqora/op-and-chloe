@@ -23,6 +23,12 @@ fi
 echo "[start] syncing core instructions into workspaces"
 bash "$STACK_DIR/scripts/host/sync-workspaces.sh"
 
+# Fix ownership of scripts that OpenClaw references in secrets providers.
+# After git pull these are owned by root, but OpenClaw requires them to be
+# owned by the container user (UID 1000).
+echo "[start] fixing script ownership for container user"
+chown -R 1000:1000 "$STACK_DIR/scripts/worker/" "$STACK_DIR/scripts/guard/" 2>/dev/null || true
+
 echo "[start] building images"
 docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" $PROFILE_FLAGS build openclaw-guard openclaw-gateway
 
