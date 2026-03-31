@@ -41,6 +41,7 @@ export async function init(providerConfig) {
     clientId: providerConfig.clientId,
     clientSecret,
     refreshToken,
+    refreshPath: providerConfig.refreshPath,
   };
 }
 
@@ -84,11 +85,10 @@ export async function vend(state) {
 
   const result = await res.json();
 
-  // Notion rotates the refresh token on every use — keep in memory only.
-  // Secrets dir stays read-only. If the container crashes, the on-disk token
-  // will be stale and the OAuth flow must be redone.
+  // Notion rotates the refresh token on every use — persist the new one
   if (result.refresh_token) {
     state.refreshToken = result.refresh_token;
+    fs.writeFileSync(state.refreshPath, result.refresh_token, "utf-8");
   }
 
   const expiresAt = Date.now() + (result.expires_in || 3600) * 1000;
