@@ -98,11 +98,8 @@ async function main() {
         const provider = providers.get(providerName);
 
         if (!provider) {
-          log(req.method, pathname, 404, { error: "provider not configured" });
-          return json(res, 404, {
-            error: `provider "${providerName}" is not configured`,
-            configured: [...providers.keys()],
-          });
+          log(req.method, pathname, 404, { error: "provider not configured", provider: providerName });
+          return json(res, 404, { error: "not found" });
         }
 
         const body = await parseBody(req);
@@ -113,10 +110,10 @@ async function main() {
       }
 
       log(req.method, pathname, 404);
-      return json(res, 404, { error: "not found", routes: ["/health", "/token/:provider"] });
+      return json(res, 404, { error: "not found" });
     } catch (err) {
-      log(req.method, pathname, 500, { error: err.message });
-      return json(res, 500, { error: err.message });
+      log(req.method, pathname, 500, { error: err.message, stack: err.stack });
+      return json(res, 500, { error: "internal error" });
     }
   });
 
