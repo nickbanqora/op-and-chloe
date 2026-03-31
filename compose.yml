@@ -48,7 +48,7 @@ services:
       - guard-control:/var/run/guard-control:ro
     init: true
     restart: unless-stopped
-    command: ["node","dist/index.js","gateway","--bind","0.0.0.0","--port","18789","--allow-unconfigured"]
+    command: ["node","dist/index.js","gateway","--bind","lan","--port","18789","--allow-unconfigured"]
 
   openclaw-guard:
     image: ${OPENCLAW_GUARD_IMAGE:-openclaw-guard-tools:local}
@@ -68,7 +68,7 @@ services:
       TERM: xterm-256color
       OPENCLAW_GATEWAY_TOKEN: ${OPENCLAW_GUARD_GATEWAY_TOKEN}
       OPENCLAW_WORKER_GATEWAY_TOKEN: ${OPENCLAW_GATEWAY_TOKEN}
-      WORKER_CONTAINER: ${INSTANCE:-op-and-chloe}-openclaw-gateway
+      WORKER_HOST: openclaw-gateway
       NPM_CONFIG_PREFIX: /home/node/.openclaw/npm-global
       PNPM_HOME: /home/node/.local/share/pnpm
       PATH: /opt/op-and-chloe/scripts/guard:/opt/op-and-chloe/scripts:/home/node/.local/share/pnpm:/home/node/.openclaw/npm-global/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
@@ -97,7 +97,7 @@ services:
       SECRETS_DIR: /etc/token-vending
     volumes:
       - token-vending-sock:/var/run/token-vending
-      - ${TOKEN_VENDING_SECRETS_DIR:-/etc/token-vending}:/etc/token-vending
+      - ${TOKEN_VENDING_SECRETS_DIR:-/etc/token-vending}:/etc/token-vending:ro
     init: true
     restart: unless-stopped
 
