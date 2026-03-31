@@ -1086,7 +1086,19 @@ step_configure_guard(){
   local pretty
   pretty=$(title_case_name "$INSTANCE")
   "$STACK_DIR/openclaw-guard" config set gateway.port 18790 >/dev/null 2>&1 || true
-  "$STACK_DIR/openclaw-guard" config set gateway.bind loopback >/dev/null 2>&1 || true
+  "$STACK_DIR/openclaw-guard" config set gateway.bind lan >/dev/null 2>&1 || true
+  # Configure remote gateway so guard CLI can audit the worker via socat forwarder
+  GUARD_CFG="$guard_cfg" python3 - <<'PY_REMOTE'
+import json, os, pathlib
+p = pathlib.Path(os.environ["GUARD_CFG"])
+if p.exists() and p.stat().st_size > 0:
+    d = json.loads(p.read_text())
+    r = d.setdefault("gateway", {}).setdefault("remote", {})
+    r["token"] = "env:OPENCLAW_WORKER_GATEWAY_TOKEN"
+    r["url"] = "ws://127.0.0.1:18789"
+    p.write_text(json.dumps(d, indent=2) + "\n")
+PY_REMOTE
+  chown 1000:1000 "$guard_cfg" 2>/dev/null || true
   say "Run configure guard"
   say "Op is your admin instance — connect a model and Telegram bot so you can talk to Op for fixing Chloe, restarts, and admin."
   echo

@@ -81,7 +81,7 @@ services:
       - guard-control:/var/run/guard-control
     init: true
     restart: unless-stopped
-    command: ["node", "dist/index.js", "gateway", "--bind", "0.0.0.0", "--port", "18790", "--allow-unconfigured"]
+    command: ["node", "dist/index.js", "gateway", "--bind", "lan", "--port", "18790", "--allow-unconfigured"]
 
   token-vending:
     profiles: ["token-vending"]

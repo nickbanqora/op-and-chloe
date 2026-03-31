@@ -5,8 +5,8 @@ set -euo pipefail
 
 # Forward localhost:18789 to the worker container so the OpenClaw CLI
 # (which hardcodes ws://127.0.0.1:$port) can reach Chloe's gateway.
-if [ -n "${WORKER_CONTAINER:-}" ]; then
-  socat TCP-LISTEN:18789,fork,reuseaddr,bind=127.0.0.1 TCP:"${WORKER_CONTAINER}":18789 &
+if [ -n "${WORKER_HOST:-}" ]; then
+  socat TCP-LISTEN:18789,fork,reuseaddr,bind=127.0.0.1 TCP:"${WORKER_HOST}":18789 &
 fi
 
 # Start OpenClaw in the background.
