@@ -89,7 +89,7 @@ services:
       SECRETS_DIR: /etc/token-vending
     volumes:
       - token-vending-sock:/var/run/token-vending
-      - ${TOKEN_VENDING_SECRETS_DIR:-/etc/token-vending}:/etc/token-vending:ro
+      - ${TOKEN_VENDING_SECRETS_DIR:-/etc/token-vending}:/etc/token-vending
     init: true
     restart: unless-stopped
 

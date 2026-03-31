@@ -125,7 +125,7 @@ async function main() {
   fs.mkdirSync(socketDir, { recursive: true });
 
   server.listen(SOCKET_PATH, () => {
-    fs.chmodSync(SOCKET_PATH, 0o660);
+    fs.chmodSync(SOCKET_PATH, 0o666);
     console.log(`Token vending service listening on ${SOCKET_PATH}`);
   });
 

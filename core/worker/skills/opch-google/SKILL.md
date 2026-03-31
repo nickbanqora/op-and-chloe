@@ -72,21 +72,30 @@ curl -s -X POST -H "Authorization: Bearer $GOOGLE_TOKEN" \
 
 ### Drive
 
+**IMPORTANT:** Always include `supportsAllDrives=true` and `includeItemsFromAllDrives=true` on ALL Drive API calls. The service account accesses Shared Drives, and these flags are required for every request (list, get, create, upload, delete).
+
 ```bash
 # List files
 curl -s -H "Authorization: Bearer $GOOGLE_TOKEN" \
-  "https://www.googleapis.com/drive/v3/files?pageSize=10"
+  "https://www.googleapis.com/drive/v3/files?pageSize=10&supportsAllDrives=true&includeItemsFromAllDrives=true"
+
+# Search for files by name
+curl -s -H "Authorization: Bearer $GOOGLE_TOKEN" \
+  "https://www.googleapis.com/drive/v3/files?q=name%3D'example.pdf'&supportsAllDrives=true&includeItemsFromAllDrives=true&fields=files(id,name,mimeType,parents)"
 
 # Download a file
 curl -s -H "Authorization: Bearer $GOOGLE_TOKEN" \
-  "https://www.googleapis.com/drive/v3/files/FILE_ID?alt=media" -o output.txt
+  "https://www.googleapis.com/drive/v3/files/FILE_ID?alt=media&supportsAllDrives=true" -o output.txt
 
-# Upload a file
+# Upload a file to a specific folder
 curl -s -X POST -H "Authorization: Bearer $GOOGLE_TOKEN" \
-  -H "Content-Type: application/json" \
-  "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart" \
-  -F "metadata={\"name\":\"file.txt\"};type=application/json" \
-  -F "file=@localfile.txt"
+  -H "Content-Type: multipart/related; boundary=boundary" \
+  "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&supportsAllDrives=true" \
+  --data-binary $'--boundary\r\nContent-Type: application/json\r\n\r\n{"name":"file.txt","parents":["FOLDER_ID"]}\r\n--boundary\r\nContent-Type: text/plain\r\n\r\nFile contents here\r\n--boundary--'
+
+# Delete a file
+curl -s -X DELETE -H "Authorization: Bearer $GOOGLE_TOKEN" \
+  "https://www.googleapis.com/drive/v3/files/FILE_ID?supportsAllDrives=true"
 ```
 
 ## Using with gcloud CLI
