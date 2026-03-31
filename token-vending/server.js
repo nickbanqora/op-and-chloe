@@ -35,6 +35,18 @@ function log(method, path, status, extra) {
   process.stdout.write(JSON.stringify(entry) + "\n");
 }
 
+function peerContext(socket) {
+  try {
+    const { uid, gid, pid } = socket._peername || {};
+    if (uid !== undefined) return { peerUid: uid, peerGid: gid, peerPid: pid };
+    // Unix socket credentials via SO_PEERCRED (Node exposes on _handle)
+    const cred = socket._handle?.getpeername?.();
+    return cred ? { peerUid: cred.uid, peerGid: cred.gid, peerPid: cred.pid } : {};
+  } catch {
+    return {};
+  }
+}
+
 /**
  * Load config.yaml from secrets dir, then discover and initialise providers.
  */
@@ -82,6 +94,7 @@ async function main() {
   const server = http.createServer(async (req, res) => {
     const url = new URL(req.url, "http://localhost");
     const pathname = url.pathname;
+    const peer = peerContext(req.socket);
 
     try {
       if (pathname === "/health") {
@@ -98,21 +111,21 @@ async function main() {
         const provider = providers.get(providerName);
 
         if (!provider) {
-          log(req.method, pathname, 404, { error: "provider not configured", provider: providerName });
+          log(req.method, pathname, 404, { ...peer, error: "provider not configured", provider: providerName });
           return json(res, 404, { error: "not found" });
         }
 
         const body = await parseBody(req);
         const result = await provider.mod.vend(provider.state, body);
 
-        log(req.method, pathname, 200, { provider: providerName });
+        log(req.method, pathname, 200, { ...peer, provider: providerName });
         return json(res, 200, result);
       }
 
-      log(req.method, pathname, 404);
+      log(req.method, pathname, 404, peer);
       return json(res, 404, { error: "not found" });
     } catch (err) {
-      log(req.method, pathname, 500, { error: err.message, stack: err.stack });
+      log(req.method, pathname, 500, { ...peer, error: err.message, stack: err.stack });
       return json(res, 500, { error: "internal error" });
     }
   });
