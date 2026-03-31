@@ -57,7 +57,9 @@ const req = http.request(options, (res) => {
 
 if (type) {
   req.setHeader("Content-Type", "application/json");
-  req.write(JSON.stringify({ type }));
+  // keychain uses "name", other providers use "type"
+  const body = provider === "keychain" ? { name: type } : { type };
+  req.write(JSON.stringify(body));
 }
 
 req.on("error", (e) => {
