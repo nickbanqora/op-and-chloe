@@ -23,6 +23,15 @@ github:
 #     - https://www.googleapis.com/auth/calendar
 #     - https://www.googleapis.com/auth/drive
 
+# Linear — vends API tokens via OAuth2 client credentials (30-day TTL)
+# Setup: Linear Settings > API > OAuth Applications > New
+#        Enable "Client credentials tokens", note client ID.
+#        Save the client secret to a file in the secrets dir.
+# linear:
+#   client_id: "your-oauth-client-id"
+#   client_secret_file: linear-client-secret
+#   actor: application                     # "application" (default) or "user"
+
 # Notion public integration — vends OAuth2 access tokens via refresh token
 # Setup: notion.so/profile/integrations > New integration > Type: Public
 # Do the OAuth flow locally to get the initial refresh token, then place
