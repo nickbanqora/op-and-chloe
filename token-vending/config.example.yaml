@@ -30,7 +30,9 @@ github:
 # linear:
 #   client_id: "your-oauth-client-id"
 #   client_secret_file: linear-client-secret
-#   actor: application                     # "application" (default) or "user"
+#   scopes:                                # defaults to [read, write]
+#     - read
+#     - write
 
 # Notion public integration — vends OAuth2 access tokens via refresh token
 # Setup: notion.so/profile/integrations > New integration > Type: Public

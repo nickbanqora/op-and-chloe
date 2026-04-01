@@ -19,7 +19,7 @@ export function check(config, secretsDir) {
   return {
     clientId: l.client_id,
     secretPath,
-    actor: l.actor || "application",
+    scopes: l.scopes || ["read", "write"],
   };
 }
 
@@ -35,7 +35,7 @@ export function init(providerConfig) {
   return {
     clientId: providerConfig.clientId,
     clientSecret,
-    actor: providerConfig.actor,
+    scopes: providerConfig.scopes,
   };
 }
 
@@ -60,7 +60,7 @@ export async function vend(state) {
       grant_type: "client_credentials",
       client_id: state.clientId,
       client_secret: state.clientSecret,
-      actor: state.actor,
+      scope: state.scopes.join(","),
     }),
   });
 
