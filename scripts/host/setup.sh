@@ -88,6 +88,7 @@ step_status(){
     17) echo "" ;;
     18) echo "" ;;
     19) check_done token_vending && echo "✅ Configured" || echo "⚪ Not configured" ;;
+    20) [ -f "${TOKEN_VENDING_SECRETS_DIR:-/etc/token-vending}/slack-bot-token" ] && echo "✅ Configured" || echo "⚪ Not configured" ;;
     *) echo "—" ;;
   esac
 }
@@ -677,6 +678,119 @@ step_token_vending(){
   esac
 }
 
+step_slack_tokens(){
+  say "Slack token vending for Chloe"
+  say "This stores Slack tokens in the token-vending sidecar so Chloe never sees"
+  say "the raw tokens — she gets them on demand via SecretRef."
+  echo
+
+  local tv_dir="${TOKEN_VENDING_SECRETS_DIR:-/etc/token-vending}"
+  local config_file="$tv_dir/config.yaml"
+  local bot_file="$tv_dir/slack-bot-token"
+  local app_file="$tv_dir/slack-app-token"
+
+  # Show current state
+  if [ -f "$bot_file" ]; then
+    ok "Bot token: configured ($(wc -c < "$bot_file" | tr -d ' ') bytes)"
+  else
+    echo "  Bot token: not configured"
+  fi
+  if [ -f "$app_file" ]; then
+    ok "App token: configured ($(wc -c < "$app_file" | tr -d ' ') bytes)"
+  else
+    echo "  App token: not configured"
+  fi
+  echo
+
+  read -r -p "$TIGER Enter Slack bot token (xoxb-...): " bot_token
+  if [ -z "$bot_token" ]; then
+    warn "No bot token entered, aborting"
+    return
+  fi
+  read -r -p "$TIGER Enter Slack app token (xapp-...): " app_token
+  if [ -z "$app_token" ]; then
+    warn "No app token entered, aborting"
+    return
+  fi
+
+  # Write token files
+  mkdir -p "$tv_dir"
+  chmod 750 "$tv_dir"
+  chown root:1500 "$tv_dir"
+  printf '%s' "$bot_token" > "$bot_file"
+  printf '%s' "$app_token" > "$app_file"
+  chown root:1500 "$bot_file" "$app_file"
+  chmod 640 "$bot_file" "$app_file"
+  ok "Token files written to $tv_dir"
+
+  # Add slack section to config.yaml if missing
+  if [ -f "$config_file" ]; then
+    if ! grep -q '^slack:' "$config_file"; then
+      cat >> "$config_file" <<'YAML'
+
+slack:
+  bot_token_file: slack-bot-token
+  app_token_file: slack-app-token
+YAML
+      ok "Added slack provider to $config_file"
+    else
+      ok "Slack provider already in $config_file"
+    fi
+  else
+    cat > "$config_file" <<'YAML'
+slack:
+  bot_token_file: slack-bot-token
+  app_token_file: slack-app-token
+YAML
+    chmod 600 "$config_file"
+    ok "Created $config_file with slack provider"
+  fi
+
+  # Configure worker openclaw.json: SecretRefs for Slack tokens + secrets providers
+  WORKER_CFG="$worker_cfg" python3 - <<'PY_SLACK'
+import json, os, pathlib
+
+p = pathlib.Path(os.environ["WORKER_CFG"])
+if not p.exists() or p.stat().st_size == 0:
+    print("Worker config not found — run onboarding first, then re-run this step")
+    raise SystemExit(1)
+
+d = json.loads(p.read_text())
+
+# Set up secrets providers for slack-bot and slack-app
+providers = d.setdefault("secrets", {}).setdefault("providers", {})
+for name, args in [("slack-bot", ["slack/bot"]), ("slack-app", ["slack/app"])]:
+    providers[name] = {
+        "source": "exec",
+        "command": "/opt/op-and-chloe/scripts/worker/vend-secret.sh",
+        "args": args,
+        "timeoutMs": 15000,
+        "trustedDirs": ["/opt/op-and-chloe/scripts/worker"],
+    }
+
+# Replace inline Slack tokens with SecretRefs
+slack = d.setdefault("channels", {}).setdefault("slack", {})
+slack["botToken"] = {"source": "exec", "provider": "slack-bot", "id": "token"}
+slack["appToken"] = {"source": "exec", "provider": "slack-app", "id": "token"}
+
+p.write_text(json.dumps(d, indent=2) + "\n")
+print("Worker config updated with Slack SecretRefs")
+PY_SLACK
+  chown 1000:1000 "$worker_cfg" 2>/dev/null || true
+
+  # Restart token-vending and worker to pick up changes
+  if container_running "${INSTANCE}-token-vending" && container_running "$worker_name"; then
+    say "Restarting token-vending and worker..."
+    cd "$STACK_DIR"
+    docker compose --env-file "$ENV_FILE" -f compose.yml --profile token-vending restart token-vending
+    sleep 3
+    docker compose --env-file "$ENV_FILE" -f compose.yml restart openclaw-gateway
+    ok "Services restarted"
+  else
+    say "Start the stack (step 18) then restart to pick up changes"
+  fi
+}
+
 ensure_guard_approval_instructions(){
   local gws="/var/lib/openclaw/guard/workspace"
   mkdir -p "$gws"
@@ -1139,7 +1253,7 @@ step_configure_worker(){
   local pretty
   pretty=$(title_case_name "$INSTANCE")
   "$STACK_DIR/openclaw-worker" config set gateway.port 18789 >/dev/null 2>&1 || true
-  "$STACK_DIR/openclaw-worker" config set gateway.bind loopback >/dev/null 2>&1 || true
+  "$STACK_DIR/openclaw-worker" config set gateway.bind lan >/dev/null 2>&1 || true
   say "Run configure worker"
   say "Chloe is your day-to-day instance — connect models and Telegram bot here; create all agents here."
   echo
@@ -1510,6 +1624,7 @@ run_step(){
     17) step_help_useful_commands ;;
     18) step_restart_all ;;
     19) step_token_vending ;;
+    20) step_slack_tokens ;;
     *) warn "Unknown step" ;;
   esac
   fix_repo_ownership
@@ -1543,6 +1658,7 @@ menu_once(){
   printf "  %2d. %-24s | %s\n" 17 "help / useful cmds" "$(step_status 17)"
   printf "  %2d. %-24s | %s\n" 18 "restart all services" "$(step_status 18)"
   printf "  %2d. %-24s | %s\n" 19 "token vending"        "$(step_status 19)"
+  printf "  %2d. %-24s | %s\n" 20 "slack (token vending)" "$(step_status 20)"
   echo
   if tailscale_available; then
     menu_tsdns=$(tailscale_dns)
@@ -1560,10 +1676,10 @@ menu_once(){
     echo "  🖥️  Webtop: http://localhost:6080/"
     echo
   fi
-  read -r -p "$TIGER Select step [1-19] or 0 to exit: " pick
+  read -r -p "$TIGER Select step [1-20] or 0 to exit: " pick
   case "$pick" in
     0) say "Exiting setup wizard. See you soon."; return 1 ;;
-    1|2|3|4|5|6|7|8|9|10|11|12|13|14|15|16|17|18|19) run_step "$pick" ;;
+    1|2|3|4|5|6|7|8|9|10|11|12|13|14|15|16|17|18|19|20) run_step "$pick" ;;
     *) warn "Invalid choice" ;;
   esac
   return 0
