@@ -8,7 +8,9 @@ ENV_FILE=${ENV_FILE:-/etc/openclaw/stack.env}
 cd "$STACK_DIR"
 
 echo "[upgrade] pulling latest code"
-git pull --ff-only || { echo "[upgrade] FAILED: git pull --ff-only failed (local changes or diverged branch). Resolve manually."; exit 1; }
+git fetch origin
+BRANCH=$(git rev-parse --abbrev-ref HEAD)
+git reset --hard "origin/$BRANCH"
 
 echo "[upgrade] fixing script ownership"
 chown -R 1000:1000 "$STACK_DIR/scripts/" 2>/dev/null || true
