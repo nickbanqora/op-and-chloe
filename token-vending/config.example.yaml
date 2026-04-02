@@ -34,6 +34,14 @@ github:
 #     - read
 #     - write
 
+# Sentry — vends OAuth2 access tokens (30-day TTL)
+# Setup: Create a Sentry OAuth app at sentry.io > Settings > Developer Settings > New Public Integration
+#        Run scripts/host/sentry-oauth.sh <client_id> <client_secret> to get the refresh token.
+# sentry:
+#   client_id: "your-oauth-client-id"
+#   client_secret_file: sentry-client-secret
+#   refresh_token_file: sentry-refresh-token
+
 # Notion public integration — vends OAuth2 access tokens via refresh token
 # Setup: notion.so/profile/integrations > New integration > Type: Public
 # Do the OAuth flow locally to get the initial refresh token, then place
