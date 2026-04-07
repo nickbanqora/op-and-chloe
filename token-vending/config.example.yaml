@@ -42,6 +42,18 @@ github:
 #   client_secret_file: sentry-client-secret
 #   refresh_token_file: sentry-refresh-token
 
+# AWS — vends temporary credentials via STS AssumeRole (1hr TTL)
+# Setup: Create an IAM user with only sts:AssumeRole permission.
+#        Create a role with the permissions the agent needs (e.g. S3 read).
+#        Save the IAM user's access key ID and secret to files in the secrets dir.
+# aws:
+#   role_arn: "arn:aws:iam::123456789012:role/openclaw-agent"
+#   access_key_id_file: aws-access-key-id
+#   secret_access_key_file: aws-secret-access-key
+#   region: eu-west-2                      # defaults to eu-west-2
+#   session_duration: 3600                 # seconds, defaults to 3600
+#   session_name: openclaw-agent           # defaults to openclaw-agent
+
 # Notion public integration — vends OAuth2 access tokens via refresh token
 # Setup: notion.so/profile/integrations > New integration > Type: Public
 # Do the OAuth flow locally to get the initial refresh token, then place
