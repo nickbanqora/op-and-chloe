@@ -29,6 +29,29 @@ bash "$STACK_DIR/scripts/host/sync-workspaces.sh"
 echo "[start] fixing script ownership for container user"
 chown -R 1000:1000 "$STACK_DIR/scripts/worker/" "$STACK_DIR/scripts/guard/" 2>/dev/null || true
 
+# Sync gateway auth tokens from stack.env into openclaw.json state files.
+# Prevents token_mismatch when containers restart with tokens that diverge
+# from what the config files have persisted.
+worker_token=$(grep -E '^OPENCLAW_GATEWAY_TOKEN=' "$ENV_FILE" | cut -d= -f2- | tr -d '"' | head -1)
+guard_token=$(grep -E '^OPENCLAW_GUARD_GATEWAY_TOKEN=' "$ENV_FILE" | cut -d= -f2- | tr -d '"' | head -1)
+if [ -n "$worker_token" ] || [ -n "$guard_token" ]; then
+  echo "[start] syncing gateway auth tokens into state configs"
+  WORKER_TKN="$worker_token" GUARD_TKN="$guard_token" python3 - <<'PY_SYNC_TOKENS'
+import json, pathlib, os
+wt, gt = os.environ.get("WORKER_TKN", ""), os.environ.get("GUARD_TKN", "")
+worker_cfg = pathlib.Path("/var/lib/openclaw/chloe/state/openclaw.json")
+guard_cfg = pathlib.Path("/var/lib/openclaw/guard/state/openclaw.json")
+for token, cfg in [(wt, worker_cfg), (gt, guard_cfg)]:
+    if token and cfg.exists():
+        d = json.loads(cfg.read_text())
+        if d.get("gateway", {}).get("auth", {}).get("token") != token:
+            d.setdefault("gateway", {}).setdefault("auth", {})["token"] = token
+            cfg.write_text(json.dumps(d, indent=2) + "\n")
+            print(f"  updated {cfg.name}")
+PY_SYNC_TOKENS
+  chown 1000:1000 /var/lib/openclaw/chloe/state/openclaw.json /var/lib/openclaw/guard/state/openclaw.json 2>/dev/null || true
+fi
+
 echo "[start] building images"
 docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" $PROFILE_FLAGS build openclaw-guard openclaw-gateway
 
