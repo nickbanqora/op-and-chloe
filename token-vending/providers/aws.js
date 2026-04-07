@@ -12,15 +12,13 @@ export const description = "AWS STS temporary credentials via AssumeRole (1hr TT
 export function check(config, secretsDir) {
   const aws = config?.aws;
   if (!aws) return null;
-  if (!aws.role_arn) return null;
-  if (!aws.access_key_id_file || !aws.secret_access_key_file) return null;
+  if (!aws.role_arn || !aws.access_key_id || !aws.secret_access_key_file) return null;
 
-  const keyIdPath = path.join(secretsDir, aws.access_key_id_file);
   const secretPath = path.join(secretsDir, aws.secret_access_key_file);
-  if (!fs.existsSync(keyIdPath) || !fs.existsSync(secretPath)) return null;
+  if (!fs.existsSync(secretPath)) return null;
 
   return {
-    keyIdPath,
+    accessKeyId: String(aws.access_key_id),
     secretPath,
     roleArn: aws.role_arn,
     region: aws.region || "eu-west-2",
@@ -33,11 +31,10 @@ export function check(config, secretsDir) {
  * Initialise provider state (called once at startup).
  */
 export function init(providerConfig) {
-  const accessKeyId = fs.readFileSync(providerConfig.keyIdPath, "utf-8").trim();
   const secretAccessKey = fs.readFileSync(providerConfig.secretPath, "utf-8").trim();
 
   return {
-    accessKeyId,
+    accessKeyId: providerConfig.accessKeyId,
     secretAccessKey,
     roleArn: providerConfig.roleArn,
     region: providerConfig.region,

@@ -47,9 +47,9 @@ github:
 #        Create a role with the permissions the agent needs (e.g. S3 read).
 #        Save the IAM user's access key ID and secret to files in the secrets dir.
 # aws:
-#   role_arn: "arn:aws:iam::123456789012:role/openclaw-agent"
-#   access_key_id_file: aws-access-key-id
+#   access_key_id: "AKIAXXXXXXXXXXXXXXXX"
 #   secret_access_key_file: aws-secret-access-key
+#   role_arn: "arn:aws:iam::123456789012:role/openclaw-agent"
 #   region: eu-west-2                      # defaults to eu-west-2
 #   session_duration: 3600                 # seconds, defaults to 3600
 #   session_name: openclaw-agent           # defaults to openclaw-agent
