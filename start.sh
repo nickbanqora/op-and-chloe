@@ -38,6 +38,13 @@ docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" $PROFILE_FLAGS pull bro
 echo "[start] bringing stack up"
 docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" $PROFILE_FLAGS up -d
 
+echo "[start] hardening state directory permissions"
+CHLOE_STATE="${OPENCLAW_STATE_DIR:-/var/lib/openclaw/chloe/state}"
+GUARD_STATE="${OPENCLAW_GUARD_STATE_DIR:-/var/lib/openclaw/guard/state}"
+for dir in "$CHLOE_STATE/credentials" "$CHLOE_STATE/secrets" "$GUARD_STATE/credentials" "$GUARD_STATE/secrets"; do
+  [ -d "$dir" ] && chmod 700 "$dir" 2>/dev/null || true
+done
+
 echo "[start] container status"
 docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" $PROFILE_FLAGS ps
 
