@@ -18,6 +18,10 @@ chown -R 1000:1000 "$STACK_DIR" 2>/dev/null || true
 echo "[upgrade] stopping stack"
 "$STACK_DIR/stop.sh"
 
+echo "[upgrade] removing stale containers"
+INSTANCE=${INSTANCE:-op-and-chloe}
+docker ps -aq --filter "name=${INSTANCE}-" | xargs -r docker rm -f 2>/dev/null || true
+
 echo "[upgrade] starting stack (builds + restarts)"
 "$STACK_DIR/start.sh"
 
