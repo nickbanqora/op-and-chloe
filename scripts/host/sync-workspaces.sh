@@ -20,6 +20,10 @@ STACK_DIR=$(cd "$SCRIPT_DIR/../.." && pwd)
 WORKER_WS=${OPENCLAW_WORKSPACE_DIR:-${WORKER_WORKSPACE_DIR:-/var/lib/openclaw/chloe/workspace}}
 GUARD_WS=${OPENCLAW_GUARD_WORKSPACE_DIR:-${GUARD_WORKSPACE_DIR:-/var/lib/openclaw/guard/workspace}}
 
+# Display names for identity substitution (set in stack.env)
+export GUARD_DISPLAY_NAME=${GUARD_DISPLAY_NAME:-Op}
+export WORKER_DISPLAY_NAME=${WORKER_DISPLAY_NAME:-Chloe}
+
 for arg in "$@"; do
   case "$arg" in
     --profile=*) SYNC_PROFILE="${arg#--profile=}" ;;
@@ -50,6 +54,9 @@ target_path=pathlib.Path(sys.argv[2])
 profile=sys.argv[3]
 
 core=core_path.read_text() if core_path.exists() else ''
+# Substitute {{ENV_VAR}} placeholders with values from environment
+import os
+core=re.sub(r'\{\{(\w+)\}\}', lambda m: os.environ.get(m.group(1), m.group(0)), core)
 
 begin_core='<!-- CORE:BEGIN -->'
 end_core='<!-- CORE:END -->'
