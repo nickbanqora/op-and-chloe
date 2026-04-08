@@ -46,6 +46,11 @@ services:
       - ${OPENCLAW_STACK_DIR:-/opt/op-and-chloe}:/opt/op-and-chloe:ro
       - token-vending-sock:/var/run/token-vending:ro
       - guard-control:/var/run/guard-control:ro
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "3"
     init: true
     restart: unless-stopped
     command: ["node","dist/index.js","gateway","--bind","lan","--port","18789","--allow-unconfigured"]
@@ -79,6 +84,11 @@ services:
       - ${OPENCLAW_WORKSPACE_DIR:-/var/lib/openclaw/chloe/workspace}:/mnt/chloe-workspace:ro
       - ${OPENCLAW_STACK_DIR:-/opt/op-and-chloe}:/opt/op-and-chloe:ro
       - guard-control:/var/run/guard-control
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "3"
     init: true
     restart: unless-stopped
     command: ["node", "dist/index.js", "gateway", "--bind", "lan", "--port", "18790", "--allow-unconfigured"]
@@ -100,6 +110,11 @@ services:
       - token-vending-sock:/var/run/token-vending
       - ${TOKEN_VENDING_SECRETS_DIR:-/etc/token-vending}:/etc/token-vending:ro
       - token-vending-refresh:/var/lib/token-vending/refresh
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     init: true
     restart: unless-stopped
 
