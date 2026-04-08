@@ -16,11 +16,15 @@ SYNC_PROFILE="${SYNC_PROFILE:-}"
 
 SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 STACK_DIR=$(cd "$SCRIPT_DIR/../.." && pwd)
+ENV_FILE=${ENV_FILE:-/etc/openclaw/stack.env}
+
+# Source stack.env for display names and other vars
+[ -f "$ENV_FILE" ] && set -a && . "$ENV_FILE" && set +a
 
 WORKER_WS=${OPENCLAW_WORKSPACE_DIR:-${WORKER_WORKSPACE_DIR:-/var/lib/openclaw/chloe/workspace}}
 GUARD_WS=${OPENCLAW_GUARD_WORKSPACE_DIR:-${GUARD_WORKSPACE_DIR:-/var/lib/openclaw/guard/workspace}}
 
-# Display names for identity substitution (set in stack.env)
+# Display names for identity substitution (defaults if not in stack.env)
 export GUARD_DISPLAY_NAME=${GUARD_DISPLAY_NAME:-Op}
 export WORKER_DISPLAY_NAME=${WORKER_DISPLAY_NAME:-Chloe}
 
