@@ -12,9 +12,10 @@ ARG HIMALAYA_VERSION=v1.1.0
 RUN apt-get update \
  && apt-get install -y --no-install-recommends \
       ca-certificates curl jq \
-      python3 python3-venv \
-      python3-openpyxl python3-docx python3-pptx \
- && rm -rf /var/lib/apt/lists/*
+      python3 python3-venv python3-pip \
+ && rm -rf /var/lib/apt/lists/* \
+ && pip3 install --no-cache-dir --break-system-packages \
+      openpyxl==3.1.5 python-docx==1.2.0 python-pptx==1.0.2
 
 # Himalaya mail CLI (official release artifact)
 RUN case "${TARGETARCH}" in \

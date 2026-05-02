@@ -6,7 +6,7 @@ metadata: { "openclaw": { "emoji": "📊" } }
 
 # Office documents
 
-The worker image ships with `python3-openpyxl`, `python3-docx`, and `python3-pptx` (Debian system packages). Use them via `python3 -c '…'` or short scripts under `/tmp/openclaw/`. **Do not** use `pip install` — the image has no `pip3` and packages must be added in the Dockerfile.
+The worker image ships with `openpyxl`, `python-docx`, and `python-pptx` (installed via `pip` at build time, pinned in `docker/openclaw-worker-tools.Dockerfile`). Use them via `python3 -c '…'` or short scripts under `/tmp/openclaw/`. **Do not** `pip install` at runtime — containers are ephemeral, so anything you install disappears on the next restart. Add new packages in the Dockerfile instead.
 
 Supported formats:
 
