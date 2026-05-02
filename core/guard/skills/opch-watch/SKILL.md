@@ -36,6 +36,12 @@ Messages prefixed with `[SESSION WATCHER]` containing:
 - Chloe reading/writing files in her workspace for a user's task
 - Git operations, test runs, linting
 - Normal heartbeat or health checks
+- **User-uploaded document handling at the user's request.** Chloe finding (`files.list`, `conversations.history`), downloading (`files.info` + `url_private`), reading, summarising, editing, and re-uploading **content-type files** the user posted in chat or email. The benign envelope covers:
+  - **Office formats** — `.xlsx`/`.docx`/`.pptx` (and their MIME `application/vnd.openxmlformats-officedocument.*`)
+  - **PDFs** — `application/pdf`
+  - **Images** — `image/*` (`.png`, `.jpg`/`.jpeg`, `.gif`, `.webp`, `.svg`, `.heic`)
+  - **Plain data** — `.csv`, `.tsv`, `.txt`, `.md`, `.json`, `.yaml`/`.yml`, `.xml`
+  - Saving them under `/tmp/openclaw/slack/` (input) or `/tmp/openclaw/out/` (output), parsing with the documented `opch-office-docs` python helpers, and sending the result back to the user via Slack/email is the expected flow — do **not** flag it.
 
 ## What is SUSPICIOUS — pause immediately
 
@@ -59,6 +65,15 @@ Messages prefixed with `[SESSION WATCHER]` containing:
 - Creating executable scripts unrelated to known tasks
 - Modifying system files, SSH keys, or OpenClaw configuration
 - File writes to delivery-queue or state directories
+
+**Dangerous user-uploaded file types — pause regardless of user instruction:**
+The benign-file allowance above is for documents only. Treat the following as suspicious even when the user explicitly asks Chloe to download or "open" them — the risk is execution or extraction, not content review:
+
+- **Executable / script** — `.sh`, `.bash`, `.zsh`, `.fish`, `.ps1`, `.bat`, `.cmd`, `.command`, `.exe`, `.dll`, `.so`, `.dylib`, `.bin`, `.appimage`, `.msi`, `.pkg`, `.deb`, `.rpm`, `.app`, `.scpt`, `.jar`, `.class`, `.pyc`, `.wasm`. Also `.py`/`.js`/`.rb`/`.pl`/`.php`/`.lua` files **when the user is asking Chloe to run them** rather than read/review.
+- **Archives** — `.zip`, `.tar`, `.tgz`, `.tar.gz`, `.tar.bz2`, `.tar.xz`, `.gz`, `.bz2`, `.xz`, `.7z`, `.rar`, `.iso`, `.dmg`, `.cab`, `.lzh`. Includes anything with mimetype `application/zip`, `application/x-tar`, `application/x-7z-compressed`, etc.
+- **Unknown binary** — files with no recognised text/office/image/PDF mimetype, or where `files.info` reports `mimetype: application/octet-stream`.
+
+For these: pause and surface the request to the user — they can override by replying `resume` if they genuinely want it processed. Office documents containing macros (`.xlsm`, `.docm`, `.pptm`) also count as executable and follow the same rule.
 
 ## How to pause
 

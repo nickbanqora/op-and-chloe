@@ -4,6 +4,24 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Common Changelog](https://common-changelog.org).
 
+## [Unreleased]
+
+### Added
+
+- **`opch-slack-files` skill (`core/worker/skills/opch-slack-files/SKILL.md`):** lets Chloe download Slack attachments **on demand** using the bot token from token-vending. Documents `files.info`, `Authorization: Bearer` download of `url_private`, size verification, and the modern two-step `files.getUploadURLExternal` / `files.completeUploadExternal` upload path. Explicitly forbids speculative auto-download.
+- **`opch-office-docs` skill (`core/worker/skills/opch-office-docs/SKILL.md`):** read and write `.xlsx` (openpyxl), `.docx` (python-docx), and `.pptx` (python-pptx). Inputs go to `/tmp/openclaw/slack/`, outputs to `/tmp/openclaw/out/`. Legacy `.xls`/`.doc`/`.ppt` and PDF are not supported in this image.
+- **Worker image deps (`docker/openclaw-worker-tools.Dockerfile`):** added `jq`, `python3-openpyxl`, `python3-docx`, `python3-pptx` so the new skills (and the existing `opch-notion` `jq` examples) run as documented.
+
+### Changed
+
+- **`opch-watch` SKILL.md (Op real-time monitor):** explicit allowance for Chloe to find/download/edit/re-upload **user-uploaded documents** (office formats, PDFs, images, plain text/csv/json/yaml). Paired with an explicit "always pause" list for **executables, scripts, archives, and macro-enabled office files** — these are blocked even on direct user request because the risk is execution/extraction, not content review.
+- **`opch-monitor` SKILL.md (Op workspace audit):** mirror entries — document-handling under `/tmp/openclaw/slack/` and `/tmp/openclaw/out/` is expected and benign; executables/scripts/archives appearing in those paths are red flags.
+
+### Operator notes
+
+- The Slack bot token currently has no `files:read` scope, so `opch-slack-files` will fail with `missing_scope` until the workspace admin adds `files:read` (and `files:write` if the bot should also upload back) to the Slack app and re-installs it. The new bot token must replace the secret consumed by `token-vending/providers/slack.js`.
+- Worker image must be rebuilt for the new Python packages to be available: `./upgrade.sh` (or `docker compose build openclaw-gateway && docker compose up -d openclaw-gateway`).
+
 ## [0.4.3] - 2026-02-23
 
 ### Added

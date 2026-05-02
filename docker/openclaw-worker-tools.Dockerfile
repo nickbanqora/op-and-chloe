@@ -10,7 +10,10 @@ ARG TARGETARCH
 ARG HIMALAYA_VERSION=v1.1.0
 
 RUN apt-get update \
- && apt-get install -y --no-install-recommends ca-certificates curl python3 python3-venv \
+ && apt-get install -y --no-install-recommends \
+      ca-certificates curl jq \
+      python3 python3-venv \
+      python3-openpyxl python3-docx python3-pptx \
  && rm -rf /var/lib/apt/lists/*
 
 # Himalaya mail CLI (official release artifact)
